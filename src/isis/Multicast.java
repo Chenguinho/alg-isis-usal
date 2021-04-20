@@ -2,6 +2,7 @@ package isis;
 
 public class Multicast {
 
-System.out.printf("Hola hijodeputa");
-
+	public void main() {
+		System.out.printf("Hola");
+	}
 }
