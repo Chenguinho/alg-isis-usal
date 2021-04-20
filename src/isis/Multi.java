@@ -6,15 +6,19 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import classes.Message;
+import classes.Mail;
 
 public class Multi extends Thread {
 
-	private static final int MAX = 100;
+	//private static final int MAX = 100;
 	
 	public void run() {
 		
 		List<Message> messagesList = new ArrayList<Message>();
 		List<Integer> used = new ArrayList<Integer>();
+		Date date = new Date();
+		
+		Mail m = new Mail(new ArrayList<Message>(), date.getTime());
 		
 		while(messagesList.size() < 100) {
 			
@@ -28,9 +32,9 @@ public class Multi extends Thread {
 				char char2 = threadString.charAt(threadString.length() - 1);
 				String thread = new StringBuilder(char1).append(char2).toString();
 				
-				Date date = new Date();
+				Date processTime = new Date();
 				
-				messagesList.add(new Message(randomNumber, Integer.parseInt(thread), date.getTime(), 0));
+				//messagesList.add(new Message(randomNumber, Integer.parseInt(thread), processTime.getTime(), 0));
 				
 				used.add(randomNumber);
 				
@@ -41,9 +45,11 @@ public class Multi extends Thread {
 				 */
 			}
 		}
+		/*
 		for (int i = 0; i < MAX; i++) {
 			System.out.println(messagesList.get(i).GetContent());
 		}
+		*/
 		
 	}
 	

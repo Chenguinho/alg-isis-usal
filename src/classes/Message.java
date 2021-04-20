@@ -6,15 +6,16 @@ public class Message {
 	static final String DEF = "DEFINITIVO";
 	
 	String content, status;
-	Integer id, process;
+	Integer id, computer, process;
 	long order; //k
 	
 	//Constructor
-	public Message(Integer i, Integer p, long k, int s) {
+	public Message(Integer i, Integer c, Integer p, long k, int s) {
 		this.id = i;
+		this.computer = c;
 		this.process = p;
 		this.order = k;
-		SetContent(this.id, this.process);
+		SetContent(this.id, this.computer, this.process);
 		SetStatus(s);
 	}
 	
@@ -22,10 +23,11 @@ public class Message {
 	
 	//SET -> Guardar valores
 	
-	public void SetContent(Integer i, Integer p) {
+	public void SetContent(Integer i, Integer c, Integer p) {
 		this.content = "P" 
-				+ String.format("%02d", p) 
-				+ " " 
+				+ String.format("%01d", c)
+				+ String.format("%01d", p)
+				+ " "
 				+ String.format("%03d", i);
 	}
 	
