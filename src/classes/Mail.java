@@ -14,6 +14,10 @@ public class Mail {
 		this.clock = c;
 	}
 	
+	public Mail() {
+		
+	}
+	
 	//Métodos constructor
 	
 	//SET -> Guardar valores

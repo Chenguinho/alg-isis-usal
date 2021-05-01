@@ -1,6 +1,8 @@
 package isis;
 
+import classes.FileLog;
 import classes.Proceso;
+import classes.Semaforo;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -21,7 +23,11 @@ import javax.ws.rs.core.UriBuilder;
 public class Isis {
 	
 	private static final int MAXCOMPS = 1;
-	private static final int MAXPROCESOS = 2;
+	private static final int MAXPROCESOS = 2 * MAXCOMPS;
+	
+	private static final String LOGFOLDER = System.getProperty("user.home") + "/isis/";
+	private static final String LOGSEND = "LogSend.txt";
+	private static final String LOGMAIL = "LogMail.txt";
 	
 	private List<String> equipos = new ArrayList<String>();
 
@@ -78,11 +84,31 @@ public class Isis {
 		
 		List<Proceso> listaProcesos = new ArrayList<Proceso>();
 		
-		for(int i = computer; i < computer + 2; i++) {
-			Proceso proc = new Proceso((computer * 2) + 1, computer, equipos);
-			listaProcesos.add(proc);
+		int idProc1 = computer + (computer - 1);
+		int idProc2 = idProc1 + 1;
+
+		FileLog logger1 = new FileLog(LOGFOLDER, LOGFOLDER + idProc1 + LOGSEND, LOGFOLDER + idProc1 + LOGMAIL);
+		FileLog logger2 = new FileLog(LOGFOLDER, LOGFOLDER + idProc2 + LOGSEND, LOGFOLDER + idProc2 + LOGMAIL);
+		
+		Proceso proc1 = new Proceso(computer + (computer - 1), computer, equipos, ip, logger1);
+		Proceso proc2 = new Proceso(computer + computer, computer, equipos, ip, logger2);
+		
+		listaProcesos.add(proc1);
+		listaProcesos.add(proc2);
+		
+		for(int i = 0; i < listaProcesos.size(); i++) {
+			listaProcesos.get(i).run();
 		}
 		
 	}
+	
+	@GET
+	@Path("wait")
+	public void waitForProcess() {
+		
+		
+		
+	}
+
 	
 }
