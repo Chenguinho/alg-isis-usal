@@ -12,7 +12,7 @@ public class Semaforo {
 		
 	}
 	
-	public void Get() {
+	public void acquire() {
 		
 		try {
 			sem.acquire();
@@ -22,10 +22,14 @@ public class Semaforo {
 		
 	}
 	
-	public void Drop() {
+	public void release() {
 		
 		sem.release();
 		
+	}
+	
+	public void release(int nProc) {
+		sem.release(nProc);
 	}
 	
 	public int AvailableSlots() {

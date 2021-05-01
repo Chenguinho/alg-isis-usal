@@ -8,6 +8,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
+import java.util.concurrent.Semaphore;
 
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
@@ -28,6 +29,12 @@ public class Isis {
 	private static final String LOGFOLDER = System.getProperty("user.home") + "/isis/";
 	private static final String LOGSEND = "LogSend.txt";
 	private static final String LOGMAIL = "LogMail.txt";
+	
+	private static int cont;
+	
+	private Semaphore semControlCont = new Semaphore(1);
+	private Semaphore semControlProc = new Semaphore(0);
+	
 	
 	private List<String> equipos = new ArrayList<String>();
 
@@ -94,19 +101,35 @@ public class Isis {
 		Proceso proc2 = new Proceso(computer + computer, computer, equipos, ip, logger2);
 		
 		listaProcesos.add(proc1);
-		listaProcesos.add(proc2);
+		listaProcesos.get(0).start();
 		
-		for(int i = 0; i < listaProcesos.size(); i++) {
-			listaProcesos.get(i).run();
-		}
+		listaProcesos.add(proc2);
+		listaProcesos.get(1).start();
 		
 	}
 	
 	@GET
-	@Path("wait")
-	public void waitForProcess() {
+	@Path("waitForProcs")
+	public void waitForProcs() {
 		
-		
+		try {
+			
+			semControlCont.acquire();
+			
+			cont++;
+			
+			if(cont == MAXPROCESOS) {
+				cont = 0;
+				semControlCont.release();
+				semControlProc.release(MAXPROCESOS - 1);
+			} else {
+				semControlCont.release();
+				semControlProc.acquire();
+			}
+			
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
 		
 	}
 

@@ -79,15 +79,6 @@ public class Proceso extends Thread {
 		logger.log(logger.GetSend(), "Proceso " + idProceso + " a las " + instant);
 		logger.log(logger.GetMail(), "Proceso " + idProceso + " a las " +instant);
 		
-		/*
-		 * TODO
-		 * 
-		 * 1 - Crear un semáforo con tantos "huecos" como procesos haya
-		 * 2 - Cada vez que se haga un run() de un proceso hacer un acquire del semaforo
-		 * 3 - Cuando se hagan todos, seguir
-		 * 
-		 */
-		
 		NotifyCreated();
 		
 	}
@@ -98,7 +89,7 @@ public class Proceso extends Thread {
 		URI uri = UriBuilder.fromUri("http://" + ipEquipo + ":8080/practicaFinal/isis").build();
 		WebTarget target = client.target(uri);
 		
-		target.path("wait").request(MediaType.TEXT_PLAIN).get(String.class);
+		target.path("waitForProcs").request(MediaType.TEXT_PLAIN).get(String.class);
 		
 	}
 	
