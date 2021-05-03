@@ -2,7 +2,10 @@ package classes;
 
 import java.net.URI;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.concurrent.Semaphore;
 
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -10,32 +13,39 @@ import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriBuilder;
 
-import isis.Multi;
+import isis.Multicast;
 
 public class Proceso extends Thread {
 
+	private Sleep sleep = new Sleep();
+	
 	Mail mailService;
-	Multi multiService;
 	
 	FileLog logger;
 	
 	int idProceso, idEquipo;
 	
-	String ipEquipo;
+	String ipEquipo, ipServer;
 	
 	List<String> vecinos;
+	List<Message> mensajes;
+	
+	public Semaphore semControlMulticast;
 	
 	//Constructor
-	public Proceso(int idProceso, int idEquipo, List<String> vecinos, String ip, FileLog logger) {
+	public Proceso(int idProceso, int idEquipo, List<String> vecinos, String ip, FileLog logger, String ipServer) {
 		this.idProceso = idProceso;
 		this.idEquipo = idEquipo;
 		this.ipEquipo = ip;
 		this.vecinos = vecinos;
+		this.mensajes = new ArrayList<Message>();
+		this.ipServer = ipServer;
 		
 		mailService = new Mail();
-		multiService = new Multi();
 		
-		this.logger = logger;	
+		this.logger = logger;
+		
+		semControlMulticast = new Semaphore(0);
 	}
 	
 	//Métodos constructor
@@ -71,15 +81,33 @@ public class Proceso extends Thread {
 	//Método run() del hilo
 	
 	public void run() {
-		String second = String.format("%02d", LocalDateTime.now().getSecond());
-		String instant = LocalDateTime.now().getHour() + 
-				":" + LocalDateTime.now().getMinute() + 
-				":" + second;
+		
+		NotifyCreated();
+		
+		String instant = String.format("%02d", LocalDateTime.now().getHour()) + 
+				":" + String.format("%02d", LocalDateTime.now().getMinute()) + 
+				":" + String.format("%02d", LocalDateTime.now().getSecond());
 		
 		logger.log(logger.GetSend(), "Proceso " + idProceso + " a las " + instant);
 		logger.log(logger.GetMail(), "Proceso " + idProceso + " a las " +instant);
 		
-		NotifyCreated();
+		for(int i = 1; i < 101; i++) {
+			
+			Date d = new Date();
+			Message m = new Message(i, idEquipo, idProceso, d.getTime(), 0);
+			
+			mensajes.add(m);
+			
+			Multicast multicast = new Multicast(m, semControlMulticast, ipEquipo, logger);
+			multicast.start();
+			
+			try {
+				semControlMulticast.acquire();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			
+		}
 		
 	}
 	

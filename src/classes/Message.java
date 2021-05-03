@@ -15,7 +15,7 @@ public class Message {
 		this.computer = c;
 		this.process = p;
 		this.order = k;
-		SetContent(this.id, this.computer, this.process);
+		SetContent(this.id, this.process);
 		SetStatus(s);
 	}
 	
@@ -23,10 +23,9 @@ public class Message {
 	
 	//SET -> Guardar valores
 	
-	public void SetContent(Integer i, Integer c, Integer p) {
+	public void SetContent(Integer i, Integer p) {
 		this.content = "P" 
-				+ String.format("%01d", c)
-				+ String.format("%01d", p)
+				+ String.format("%02d", p)
 				+ " "
 				+ String.format("%03d", i);
 	}

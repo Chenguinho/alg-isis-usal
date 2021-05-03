@@ -1,12 +1,15 @@
 package isis;
 
 import classes.FileLog;
+import classes.Message;
 import classes.Proceso;
 import classes.Semaforo;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 import java.util.concurrent.Semaphore;
 
@@ -24,7 +27,7 @@ import javax.ws.rs.core.UriBuilder;
 public class Isis {
 	
 	private static final int MAXCOMPS = 1;
-	private static final int MAXPROCESOS = 2 * MAXCOMPS;
+	public static final int MAXPROCESOS = 2 * MAXCOMPS;
 	
 	private static final String LOGFOLDER = System.getProperty("user.home") + "/isis/";
 	private static final String LOGSEND = "LogSend.txt";
@@ -32,11 +35,14 @@ public class Isis {
 	
 	private static int cont;
 	
-	private Semaphore semControlCont = new Semaphore(1);
-	private Semaphore semControlProc = new Semaphore(0);
+	private static Semaphore semControlCont = new Semaphore(1);
+	private static Semaphore semControlProc = new Semaphore(0);
 	
 	
 	private List<String> equipos = new ArrayList<String>();
+	private static Map<Integer, String> mapaProcesos = new HashMap<Integer, String>();
+	
+	public String ipServer;
 
 	@GET
 	@Path("hola")
@@ -56,7 +62,11 @@ public class Isis {
 		Scanner sc = new Scanner(System.in);
 		for(int i = 0; i < MAXCOMPS; i++) {
 			System.out.printf("Introduce la IP del ordenador %d\n", i + 1);
-			equipos.add(i, sc.next());
+			String input = sc.next();
+			equipos.add(i, input);
+			if(i == 0) {
+				ipServer = input;
+			}
 		}
 		sc.close();
 		
@@ -97,8 +107,8 @@ public class Isis {
 		FileLog logger1 = new FileLog(LOGFOLDER, LOGFOLDER + idProc1 + LOGSEND, LOGFOLDER + idProc1 + LOGMAIL);
 		FileLog logger2 = new FileLog(LOGFOLDER, LOGFOLDER + idProc2 + LOGSEND, LOGFOLDER + idProc2 + LOGMAIL);
 		
-		Proceso proc1 = new Proceso(computer + (computer - 1), computer, equipos, ip, logger1);
-		Proceso proc2 = new Proceso(computer + computer, computer, equipos, ip, logger2);
+		Proceso proc1 = new Proceso(computer + (computer - 1), computer, equipos, ip, logger1, ipServer);
+		Proceso proc2 = new Proceso(computer + computer, computer, equipos, ip, logger2, ipServer);
 		
 		listaProcesos.add(proc1);
 		listaProcesos.get(0).start();
@@ -106,7 +116,21 @@ public class Isis {
 		listaProcesos.add(proc2);
 		listaProcesos.get(1).start();
 		
+		/*
+		 * Para depués saber a dónde enviamos la información y no tener que hacer 
+		 * sucesiones de if creamos un mapa en el que asociamos a la clave (ID del
+		 * proceso) su dirección IP y poder accederlas directamente
+		 */
+		
+		mapaProcesos.put(computer + (computer - 1), ip);
+		mapaProcesos.put(computer + computer, ip);
+		
 	}
+	
+	/*
+	 * Función para esperar a que todos los procesos estén listos y no
+	 * empezar con alguno pendiente de inicializarse
+	 */
 	
 	@GET
 	@Path("waitForProcs")
@@ -132,6 +156,21 @@ public class Isis {
 		}
 		
 	}
-
+	
+	/*
+	 * Proceso para enviar el primer mensaje a todos los procesos
+	 */
+	
+	@GET
+	@Path("multicastMsg")
+	public void multicastMsg(
+			@QueryParam(value="content") String content,
+			@QueryParam(value="ipServer") String ipServer,
+			@QueryParam(value="idDest") Integer idDest
+	) {
+		
+		System.out.println(content + " " + mapaProcesos.get(idDest));
+		
+	}
 	
 }

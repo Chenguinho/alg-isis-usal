@@ -1,11 +1,12 @@
 package classes;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 public class Mail {
 	
-	List<Message> buzon = new ArrayList<Message>();
+	List<Message> buzon;
 	long clock = 0;
 	
 	//Constructor
@@ -15,6 +16,11 @@ public class Mail {
 	}
 	
 	public Mail() {
+		
+		Date date = new Date();
+		
+		this.buzon = new ArrayList<Message>();
+		this.clock = date.getTime();
 		
 	}
 	

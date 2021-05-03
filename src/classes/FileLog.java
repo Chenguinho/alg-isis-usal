@@ -8,32 +8,6 @@ public class FileLog {
 	
 	String logFileSend, logFileMail;
 	
-	/*
-	public FileLog(String logFolder, String path1, String path2) {
-		
-		File folder = new File(logFolder);
-		File fichero1 = new File(path1);
-		File fichero2 = new File(path2);
-		
-		try {
-			
-			if(!folder.exists()) 
-				folder.mkdirs();
-			
-			if(!fichero1.exists())
-				fichero1.createNewFile();
-			
-			if(!fichero2.exists())
-				fichero2.createNewFile();
-			
-		} catch (Exception e) {
-			System.out.println("ERROR: Creación de fichero");
-			e.printStackTrace();
-		}
-		
-	}
-	*/
-	
 	public FileLog(String logFolder, String pathToLogFileSend, String pathToLogFileMail) {
 		
 		logFileSend = pathToLogFileSend;
@@ -48,11 +22,15 @@ public class FileLog {
 			if(!folder.exists()) 
 				folder.mkdirs();
 			
-			if(!fichero1.exists())
-				fichero1.createNewFile();
+			if(fichero1.exists())
+				fichero1.delete();
 			
-			if(!fichero2.exists())
-				fichero2.createNewFile();
+			fichero1.createNewFile();
+			
+			if(fichero2.exists())
+				fichero2.delete();
+			
+			fichero2.createNewFile();
 			
 		} catch (Exception e) {
 			System.out.println("ERROR: Creación de fichero");
@@ -68,7 +46,7 @@ public class FileLog {
 		
 		try {
 			
-			logFile = new FileWriter(pathToFile);
+			logFile = new FileWriter(pathToFile, true);
 			pw = new PrintWriter(logFile);
 			
 			pw.println(logMsg);
