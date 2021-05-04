@@ -9,7 +9,7 @@ public class Sleep {
 		double random = ThreadLocalRandom.current().nextDouble(min, max);
 		
 		try {
-			Thread.sleep((long) random);
+			Thread.sleep((long) random * 1000);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}

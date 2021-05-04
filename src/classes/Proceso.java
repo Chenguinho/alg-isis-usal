@@ -1,23 +1,21 @@
 package classes;
 
-import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 
-import javax.ws.rs.client.Client;
-import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.UriBuilder;
 
+import isis.Isis;
 import isis.Multicast;
 
 public class Proceso extends Thread {
 
 	private Sleep sleep = new Sleep();
+	private Network network = new Network();
 	
 	Mail mailService;
 	
@@ -30,7 +28,7 @@ public class Proceso extends Thread {
 	List<String> vecinos;
 	List<Message> mensajes;
 	
-	public Semaphore semControlMulticast;
+	private Semaphore semControlMulticast;
 	
 	//Constructor
 	public Proceso(int idProceso, int idEquipo, List<String> vecinos, String ip, FileLog logger, String ipServer) {
@@ -45,7 +43,7 @@ public class Proceso extends Thread {
 		
 		this.logger = logger;
 		
-		semControlMulticast = new Semaphore(0);
+		semControlMulticast = new Semaphore(1);
 	}
 	
 	//Métodos constructor
@@ -91,21 +89,75 @@ public class Proceso extends Thread {
 		logger.log(logger.GetSend(), "Proceso " + idProceso + " a las " + instant);
 		logger.log(logger.GetMail(), "Proceso " + idProceso + " a las " +instant);
 		
-		for(int i = 1; i < 101; i++) {
+		//for(int j = 0; j < Isis.MAXPROCESOS; j++) {
 			
-			Date d = new Date();
-			Message m = new Message(i, idEquipo, idProceso, d.getTime(), 0);
-			
-			mensajes.add(m);
-			
-			Multicast multicast = new Multicast(m, semControlMulticast, ipEquipo, logger);
-			multicast.start();
-			
-			try {
-				semControlMulticast.acquire();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
+			for(int i = 1; i < 10; i++) {
+				
+				try {
+					semControlMulticast.acquire();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				
+				Date d = new Date();
+				Message m = new Message(i, idEquipo, idProceso, d.getTime(), 0);
+				
+				mensajes.add(m);
+				
+				Multicast multicast = new Multicast(m, semControlMulticast, ipEquipo, logger);
+				multicast.start();
+				
+				sleep.ThreadSleep(1f, 1.5f);
+				
 			}
+			
+		//}
+		
+	}
+	
+	public void receiveMulticast(Message m, Integer origen) {
+		
+		System.out.println("RECIBIDO MULTICAST | " + m.GetContent() + " en proceso " + idProceso);
+		
+		Date d = new Date();
+		
+		m.SetOrder(d.getTime());
+		
+		mailService.buzon.add(m);
+		
+		SendPurpose(m, origen);
+		
+	}
+	
+	public void receivePurpose(Message m) {
+		
+		System.out.println("PROPUESTA RECIBIDA | " + m.GetContent() + " de proceso " + m.GetProcess() + " en proceso " + idProceso);
+		
+		Date d = new Date();
+		Message msg = new Message();
+		
+		if(m.GetOrder() < d.getTime())
+			m.SetOrder(d.getTime());
+		
+		for(int i = 0; i < mailService.GetBuzon().size(); i++) {
+			
+			if(m.GetId() == mailService.GetBuzon().get(i).GetId() && m.GetProcess() == mailService.GetBuzon().get(i).GetProcess()) {
+				msg = mailService.GetBuzon().get(i);
+			}
+			
+		}
+		
+		if(m.GetOrder() > msg.GetOrder())
+			msg.SetOrder(m.GetOrder());
+		
+		msg.SetPropuestas(msg.GetPropuestas() + 1);	
+		
+		System.out.println("Nueva propuesta recibida para " + msg.GetContent() + " -> " + msg.GetPropuestas());
+		
+		if(msg.GetPropuestas() == Isis.MAXPROCESOS) {
+			
+			msg.SetStatus(1);
+			SendMultiDef(msg);
 			
 		}
 		
@@ -113,11 +165,42 @@ public class Proceso extends Thread {
 	
 	void NotifyCreated() {
 		
-		Client client = ClientBuilder.newClient();
-		URI uri = UriBuilder.fromUri("http://" + ipEquipo + ":8080/practicaFinal/isis").build();
-		WebTarget target = client.target(uri);
+		WebTarget target = network.CreateClient(ipEquipo);
 		
 		target.path("waitForProcs").request(MediaType.TEXT_PLAIN).get(String.class);
+		
+	}
+	
+	void SendPurpose(Message m, Integer origen) {
+		
+		WebTarget target = network.CreateClient(ipEquipo);
+		
+		target.path("sendPurpose")
+			.queryParam("content", m.GetContent())
+			.queryParam("id", m.GetId())
+			.queryParam("idEquipo", m.GetComputer())
+			.queryParam("idProcMen", m.GetProcess())
+			.queryParam("idProceso", idProceso)
+			.queryParam("order", m.GetOrder())
+			.queryParam("ipServer", ipServer)
+			.queryParam("idDest", origen)
+			.request(MediaType.TEXT_PLAIN).get(String.class);
+		
+	}
+	
+	void SendMultiDef(Message m) {
+		
+		WebTarget target = network.CreateClient(ipEquipo);
+		
+		target.path("sendMultiDef")
+			.queryParam("content", m.GetContent())
+			.queryParam("id", m.GetId())
+			.queryParam("idEquipo", m.GetComputer())
+			.queryParam("idProceso", m.GetProcess())
+			.queryParam("order", m.GetOrder())
+			.queryParam("ipServer", ipServer)
+			.queryParam("propuestas", m.GetPropuestas())
+			.request(MediaType.TEXT_PLAIN).get(String.class);
 		
 	}
 	

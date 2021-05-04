@@ -3,7 +3,6 @@ package isis;
 import classes.FileLog;
 import classes.Message;
 import classes.Proceso;
-import classes.Semaforo;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -26,7 +25,7 @@ import javax.ws.rs.core.UriBuilder;
 @Path("isis")
 public class Isis {
 	
-	private static final int MAXCOMPS = 1;
+	public static final int MAXCOMPS = 1;
 	public static final int MAXPROCESOS = 2 * MAXCOMPS;
 	
 	private static final String LOGFOLDER = System.getProperty("user.home") + "/isis/";
@@ -38,9 +37,12 @@ public class Isis {
 	private static Semaphore semControlCont = new Semaphore(1);
 	private static Semaphore semControlProc = new Semaphore(0);
 	
+	public static Semaphore semControlMulti = new Semaphore(1);
 	
 	private List<String> equipos = new ArrayList<String>();
 	private static Map<Integer, String> mapaProcesos = new HashMap<Integer, String>();
+	
+	public static List<Proceso> listaProcesos;
 	
 	public String ipServer;
 
@@ -53,6 +55,8 @@ public class Isis {
 	@GET
 	@Path("start")
 	public void start() {
+		
+		listaProcesos = new ArrayList<Proceso>();
 		
 		/*
 		 * Pedimos al usuario a traves de la consola que introduzca manualmente
@@ -99,8 +103,6 @@ public class Isis {
 			@QueryParam(value="dir") String ip
 	) {
 		
-		List<Proceso> listaProcesos = new ArrayList<Proceso>();
-		
 		int idProc1 = computer + (computer - 1);
 		int idProc2 = idProc1 + 1;
 
@@ -111,10 +113,10 @@ public class Isis {
 		Proceso proc2 = new Proceso(computer + computer, computer, equipos, ip, logger2, ipServer);
 		
 		listaProcesos.add(proc1);
-		listaProcesos.get(0).start();
+		proc1.start();
 		
 		listaProcesos.add(proc2);
-		listaProcesos.get(1).start();
+		proc2.start();
 		
 		/*
 		 * Para depués saber a dónde enviamos la información y no tener que hacer 
@@ -143,10 +145,14 @@ public class Isis {
 			cont++;
 			
 			if(cont == MAXPROCESOS) {
+				System.out.println("Todos listos, empieza");
+				System.out.println("_____________________");
+				System.out.println();
 				cont = 0;
 				semControlCont.release();
 				semControlProc.release(MAXPROCESOS - 1);
 			} else {
+				System.out.println("Esperando a todos los procesos...");
 				semControlCont.release();
 				semControlProc.acquire();
 			}
@@ -165,11 +171,63 @@ public class Isis {
 	@Path("multicastMsg")
 	public void multicastMsg(
 			@QueryParam(value="content") String content,
+			@QueryParam(value="id") Integer id,
+			@QueryParam(value="idEquipo") Integer idEquipo,
+			@QueryParam(value="idProceso") Integer idProceso,
+			@QueryParam(value="order") Long order,
 			@QueryParam(value="ipServer") String ipServer,
 			@QueryParam(value="idDest") Integer idDest
 	) {
 		
-		System.out.println(content + " " + mapaProcesos.get(idDest));
+		Message m = new Message(id, idEquipo, idProceso, order, 0);
+		
+		System.out.println("MULTICAST | " + m.GetContent() + " enviado a proceso " + idDest);
+		
+		for(int i = 0; i < listaProcesos.size(); i++) {
+			
+			if(listaProcesos.get(i).GetIdProceso() == idDest)
+				listaProcesos.get(i).receiveMulticast(m, m.GetProcess());
+			
+		}
+		
+	}
+	
+	@GET
+	@Path("sendPurpose")
+	public void multicastPurpose(
+			@QueryParam(value="content") String content,
+			@QueryParam(value="id") Integer id,
+			@QueryParam(value="idEquipo") Integer idEquipo,
+			@QueryParam(value="idProcMen") Integer idProcMen,
+			@QueryParam(value="idProceso") Integer idProceso,
+			@QueryParam(value="order") Long order,
+			@QueryParam(value="ipServer") String ipServer,
+			@QueryParam(value="idDest") Integer idDest,
+			@QueryParam(value="propuestas") Integer propuestas
+	) {
+		
+		Message m = new Message(id, idEquipo, idProcMen, order, 0);
+		
+		System.out.println("PROPUESTA | " + m.GetContent() + " de proceso " + idProceso + " a proceso " + idDest);
+			
+		listaProcesos.get(idDest - 1).receivePurpose(m);
+		
+	}
+	
+	@GET
+	@Path("sendMultiDef")
+	public void multicastDef(
+			@QueryParam(value="content") String content,
+			@QueryParam(value="id") Integer id,
+			@QueryParam(value="idEquipo") Integer idEquipo,
+			@QueryParam(value="idProceso") Integer idProceso,
+			@QueryParam(value="order") Long order,
+			@QueryParam(value="ipServer") String ipServer,
+			@QueryParam(value="idDest") Integer idDest,
+			@QueryParam(value="propuestas") Integer propuestas
+	) {
+		
+		
 		
 	}
 	

@@ -17,24 +17,23 @@ public class Multicast extends Thread {
 	private Sleep sleep = new Sleep();
 	
 	Message mensaje;
-	Semaphore semControlMulticast;
 	String ipServer;
 	FileLog logger;
+	Semaphore semControlMulticast;
 	
 	private final int MAXPROCESOS = Isis.MAXPROCESOS;
 	
 	public Multicast(Message m, Semaphore sem, String ip, FileLog log) {
 		mensaje = m;
-		ipServer = ip;
 		semControlMulticast = sem;
+		ipServer = ip;
 		logger = log;
 	}
 	
 	public void run() {
 		
+		
 		for(int i = 0; i < MAXPROCESOS; i++) {
-			
-			logger.log(logger.GetSend(), mensaje.GetContent());
 			
 			Client client = ClientBuilder.newClient();
 			URI uri = UriBuilder.fromUri("http://" + ipServer + ":8080/practicaFinal/isis").build();
@@ -42,6 +41,10 @@ public class Multicast extends Thread {
 			
 			target.path("multicastMsg")
 				.queryParam("content", mensaje.GetContent())
+				.queryParam("id", mensaje.GetId())
+				.queryParam("idEquipo", mensaje.GetComputer())
+				.queryParam("idProceso", mensaje.GetProcess())
+				.queryParam("order", mensaje.GetOrder())
 				.queryParam("ipServer", ipServer)
 				.queryParam("idDest", i + 1)
 				.request(MediaType.TEXT_PLAIN).get(String.class);
@@ -53,7 +56,5 @@ public class Multicast extends Thread {
 		semControlMulticast.release();
 		
 	}
-	
-	
 	
 }

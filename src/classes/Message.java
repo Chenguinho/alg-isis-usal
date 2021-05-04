@@ -6,7 +6,7 @@ public class Message {
 	static final String DEF = "DEFINITIVO";
 	
 	String content, status;
-	Integer id, computer, process;
+	Integer id, computer, process, numPropuestas;
 	long order; //k
 	
 	//Constructor
@@ -14,9 +14,16 @@ public class Message {
 		this.id = i;
 		this.computer = c;
 		this.process = p;
+		this.numPropuestas = 0;
 		this.order = k;
 		SetContent(this.id, this.process);
 		SetStatus(s);
+	}
+	
+	public Message() {
+		
+		this.numPropuestas = 0;
+		
 	}
 	
 	//Métodos constructor
@@ -52,6 +59,10 @@ public class Message {
 		}
 	}
 	
+	public void SetPropuestas(int p) {
+		this.numPropuestas = p;
+	}
+	
 	//GET -> Recuperar información
 	
 	public Integer GetId() {
@@ -72,5 +83,13 @@ public class Message {
 	
 	public String GetStatus() {
 		return this.status;
+	}
+	
+	public Integer GetComputer() {
+		return this.computer;
+	}
+	
+	public Integer GetPropuestas() {
+		return this.numPropuestas;
 	}
 }
