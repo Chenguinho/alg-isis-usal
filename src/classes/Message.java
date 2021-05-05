@@ -2,94 +2,127 @@ package classes;
 
 public class Message {
 	
+	//Constantes
+	
 	static final String PROV = "PROVISIONAL";
 	static final String DEF = "DEFINITIVO";
 	
-	String content, status;
-	Integer id, computer, process, numPropuestas;
-	long order; //k
+	//Atributos del mensaje
 	
-	//Constructor
-	public Message(Integer i, Integer c, Integer p, long k, int s) {
-		this.id = i;
-		this.computer = c;
-		this.process = p;
-		this.numPropuestas = 0;
-		this.order = k;
-		SetContent(this.id, this.process);
-		SetStatus(s);
-	}
+	Integer idMensaje, idEquipo, idProceso;
+	Integer orden;
+	Integer numPropuestas;
+	
+	String estado;
+	
+	String contenido;
+	
+	//Metodos creacion del mensaje
 	
 	public Message() {
 		
-		this.numPropuestas = 0;
+	}
+	
+	public Message(Integer idM, Integer idE, Integer idP, Integer orden, Integer prop, int estado) {
+		
+		this.idMensaje = idM;
+		this.idEquipo = idE;
+		this.idProceso = idP;
+		
+		this.numPropuestas = prop;
+		this.orden = orden;
+		
+		SetEstado(estado);
+		
+		SetContenido(idP, idM);
 		
 	}
 	
-	//Métodos constructor
+	//Metodos SET
 	
-	//SET -> Guardar valores
-	
-	public void SetContent(Integer i, Integer p) {
-		this.content = "P" 
-				+ String.format("%02d", p)
-				+ " "
-				+ String.format("%03d", i);
+	public void SetEstado(int i) {
+		
+		if(i == 0)
+			this.estado = PROV;
+		else
+			this.estado = DEF;
+		
 	}
 	
-	public void SetId(Integer i) {
-		this.id = i;
+	public void SetContenido(Integer proceso, Integer msj) {
+		
+		this.contenido = "P" 
+						+ String.format("%02d", proceso)
+						+ " " 
+						+ String.format("%03d", msj);
+		
 	}
 	
-	public void SetProcess(Integer p) {
-		this.process = p;
+	public void SetOrden(Integer k) {
+		
+		this.orden = k;
+		
 	}
 	
-	public void SetOrder(long k) {
-		this.order = k;
+	public void SetOrdenLC1() {
+		
+		this.orden++;
+		
 	}
 	
-	public void SetStatus(int s) {
-		if(s == 0 || s == 1) {
-			if(s == 0) {
-				this.status = PROV;
-			} else {
-				this.status = DEF;
-			}
+	public void SetOrdenLC2(Integer proceso) {
+		
+		if(proceso > this.orden) {
+			proceso++;
+			this.orden = proceso;
+		} else {
+			this.orden++;
 		}
+		
 	}
 	
-	public void SetPropuestas(int p) {
+	public void SetPropuestas(Integer p) {
+		
 		this.numPropuestas = p;
+		
 	}
 	
-	//GET -> Recuperar información
+	//Metodos GET
 	
-	public Integer GetId() {
-		return this.id;
+	public Integer GetIdMensaje() {
+		
+		return this.idMensaje;
+		
 	}
 	
-	public String GetContent() {
-		return this.content;
+	public Integer GetIdProceso() {
+		
+		return this.idProceso;
+		
 	}
 	
-	public long GetOrder() {
-		return this.order;
+	public Integer GetIdEquipo() {
+		
+		return this.idEquipo;
+		
 	}
 	
-	public Integer GetProcess() {
-		return this.process;
+	public String GetContenido() {
+		
+		return this.contenido;
+		
 	}
 	
-	public String GetStatus() {
-		return this.status;
-	}
-	
-	public Integer GetComputer() {
-		return this.computer;
+	public Integer GetOrden() {
+		
+		return this.orden;
+		
 	}
 	
 	public Integer GetPropuestas() {
+		
 		return this.numPropuestas;
+		
 	}
+	
 }

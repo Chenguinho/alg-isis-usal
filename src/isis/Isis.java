@@ -1,233 +1,207 @@
 package isis;
 
-import classes.FileLog;
 import classes.Message;
+import classes.Network;
 import classes.Proceso;
 
-import java.net.URI;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Scanner;
 import java.util.concurrent.Semaphore;
 
-import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.QueryParam;
-import javax.ws.rs.client.Client;
-import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.UriBuilder;
 
 @Path("isis")
 public class Isis {
 	
-	public static final int MAXCOMPS = 1;
+	static final int MAXCOMPS = 1;
 	public static final int MAXPROCESOS = 2 * MAXCOMPS;
 	
-	private static final String LOGFOLDER = System.getProperty("user.home") + "/isis/";
-	private static final String LOGSEND = "LogSend.txt";
-	private static final String LOGMAIL = "LogMail.txt";
+	private Network network = new Network();
 	
-	private static int cont;
+	private String ipServidorCentral;
 	
-	private static Semaphore semControlCont = new Semaphore(1);
-	private static Semaphore semControlProc = new Semaphore(0);
-	
-	public static Semaphore semControlMulti = new Semaphore(1);
-	
-	private List<String> equipos = new ArrayList<String>();
-	private static Map<Integer, String> mapaProcesos = new HashMap<Integer, String>();
-	
+	private static List<String> listaEquipos;
 	public static List<Proceso> listaProcesos;
 	
-	public String ipServer;
-
-	@GET
-	@Path("hola")
-	public void hola() {
-		System.out.println("Hola buenas");
-	}
+	private static int contadorProcesos;
+	private static Semaphore semControlContador = new Semaphore(1);
+	private static Semaphore semControlProcesos = new Semaphore(0);
+	
+	//public String ipServer;
 	
 	@GET
 	@Path("start")
 	public void start() {
 		
 		listaProcesos = new ArrayList<Proceso>();
+		listaEquipos = new ArrayList<String>();
 		
 		/*
-		 * Pedimos al usuario a traves de la consola que introduzca manualmente
-		 * tantas IPs como ordenadores establezcamos como maximo
+		 * Pedimos al usuario a través de consola
+		 * que introduzca la dirección IP de tantos
+		 * ordenadores como establezcamos en MAXCOMPS
 		 */
 		
 		Scanner sc = new Scanner(System.in);
+		
 		for(int i = 0; i < MAXCOMPS; i++) {
-			System.out.printf("Introduce la IP del ordenador %d\n", i + 1);
+			
+			System.out.println("Introduce la IP del equipo " + (i + 1));
+			
 			String input = sc.next();
-			equipos.add(i, input);
-			if(i == 0) {
-				ipServer = input;
-			}
+			
+			if(i == 0)
+				ipServidorCentral = input;
+			
+			listaEquipos.add(input);
+			
 		}
+		
 		sc.close();
 		
 		/*
-		 * Construimos una URL a traves de la cual crearemos los servicios en
-		 * cada una de las IPs, esta URL tendrá la estructura
-		 * http://[IP de la máquina]:8080/practicaFinal/isis/create
-		 * Como parámetros enviaremos el numero de ordenador que corresponda
+		 * Empezamos a crear los procesos en las diferentes
+		 * direcciones que hemos recibido como parametros
+		 * a traves de la consola
 		 */
 		
 		for(int i = 0; i < MAXCOMPS; i++) {
-			Client client = ClientBuilder.newClient();
-			URI uri = UriBuilder.fromUri("http://" + equipos.get(i) + ":8080/practicaFinal/isis").build();
-			WebTarget target = client.target(uri);
+			
+			WebTarget target = network.CreateClient(listaEquipos.get(i));
 			
 			target.path("create")
-			.queryParam("computer", String.valueOf(i + 1))
-			.queryParam("dir", equipos.get(i))
-			.request(MediaType.TEXT_PLAIN)
-			.get(String.class);
+				.queryParam("idEquipo", i + 1)
+				.queryParam("ipEquipo", listaEquipos.get(i))
+				.queryParam("ipCentral", ipServidorCentral)
+				.request(MediaType.TEXT_PLAIN).get(String.class);
+			
 		}
+		
 	}
+	
+	//Funcion para crear los procesos
 	
 	@GET
 	@Path("create")
-	public void crear(
-			@DefaultValue("0")
-			@QueryParam(value="computer") Integer computer,
-			@DefaultValue("localhost")
-			@QueryParam(value="dir") String ip
+	public void create(
+			@QueryParam(value="idEquipo") Integer idEquipo,
+			@QueryParam(value="ipEquipo") String ipEquipo
 	) {
 		
-		int idProc1 = computer + (computer - 1);
-		int idProc2 = idProc1 + 1;
-
-		FileLog logger1 = new FileLog(LOGFOLDER, LOGFOLDER + idProc1 + LOGSEND, LOGFOLDER + idProc1 + LOGMAIL);
-		FileLog logger2 = new FileLog(LOGFOLDER, LOGFOLDER + idProc2 + LOGSEND, LOGFOLDER + idProc2 + LOGMAIL);
+		Integer idP1 = idEquipo + (idEquipo - 1);
+		Integer idP2 = idP1 + 1;
 		
-		Proceso proc1 = new Proceso(computer + (computer - 1), computer, equipos, ip, logger1, ipServer);
-		Proceso proc2 = new Proceso(computer + computer, computer, equipos, ip, logger2, ipServer);
+		Proceso p1 = new Proceso(idP1, idEquipo, ipEquipo);
+		Proceso p2 = new Proceso(idP2, idEquipo, ipEquipo);
 		
-		listaProcesos.add(proc1);
-		proc1.start();
+		listaProcesos.add(p1);
+		p1.start();
 		
-		listaProcesos.add(proc2);
-		proc2.start();
-		
-		/*
-		 * Para depués saber a dónde enviamos la información y no tener que hacer 
-		 * sucesiones de if creamos un mapa en el que asociamos a la clave (ID del
-		 * proceso) su dirección IP y poder accederlas directamente
-		 */
-		
-		mapaProcesos.put(computer + (computer - 1), ip);
-		mapaProcesos.put(computer + computer, ip);
+		listaProcesos.add(p2);
+		p2.start();
 		
 	}
 	
-	/*
-	 * Función para esperar a que todos los procesos estén listos y no
-	 * empezar con alguno pendiente de inicializarse
-	 */
+	//Funcion para esperar y sincronizar los procesos
 	
 	@GET
 	@Path("waitForProcs")
-	public void waitForProcs() {
+	public void waitProcs() {
 		
 		try {
 			
-			semControlCont.acquire();
+			semControlContador.acquire();
 			
-			cont++;
+			contadorProcesos++;
 			
-			if(cont == MAXPROCESOS) {
-				System.out.println("Todos listos, empieza");
-				System.out.println("_____________________");
-				System.out.println();
-				cont = 0;
-				semControlCont.release();
-				semControlProc.release(MAXPROCESOS - 1);
-			} else {
+			if(contadorProcesos != MAXPROCESOS) {
+				
 				System.out.println("Esperando a todos los procesos...");
-				semControlCont.release();
-				semControlProc.acquire();
+				
+				semControlContador.release();
+				semControlProcesos.acquire();
+				
+			} else {
+				
+				System.out.println("Todos los procesos listos!");
+				System.out.println();
+				
+				contadorProcesos = 0;
+				
+				semControlContador.release();
+				semControlProcesos.release(MAXPROCESOS - 1);
+				
 			}
 			
 		} catch (InterruptedException e) {
+			
 			e.printStackTrace();
+			
 		}
 		
 	}
-	
-	/*
-	 * Proceso para enviar el primer mensaje a todos los procesos
-	 */
 	
 	@GET
 	@Path("multicastMsg")
 	public void multicastMsg(
-			@QueryParam(value="content") String content,
-			@QueryParam(value="id") Integer id,
-			@QueryParam(value="idEquipo") Integer idEquipo,
+			@QueryParam(value="idMensaje") Integer idMensaje,
 			@QueryParam(value="idProceso") Integer idProceso,
-			@QueryParam(value="order") Long order,
-			@QueryParam(value="ipServer") String ipServer,
-			@QueryParam(value="idDest") Integer idDest
+			@QueryParam(value="idEquipo") Integer idEquipo
 	) {
 		
-		Message m = new Message(id, idEquipo, idProceso, order, 0);
-		
-		System.out.println("MULTICAST | " + m.GetContent() + " enviado a proceso " + idDest);
+		Message m = new Message(idMensaje, idEquipo, idProceso, 0, 0, 0);
 		
 		for(int i = 0; i < listaProcesos.size(); i++) {
 			
-			if(listaProcesos.get(i).GetIdProceso() == idDest)
-				listaProcesos.get(i).receiveMulticast(m, m.GetProcess());
+			listaProcesos.get(i).receiveMulticast(m, idEquipo);
 			
 		}
 		
 	}
 	
 	@GET
-	@Path("sendPurpose")
-	public void multicastPurpose(
-			@QueryParam(value="content") String content,
-			@QueryParam(value="id") Integer id,
-			@QueryParam(value="idEquipo") Integer idEquipo,
-			@QueryParam(value="idProcMen") Integer idProcMen,
+	@Path("sendPropuesta")
+	public void sendPropuesta(
+			@QueryParam(value="idMensaje") Integer idMensaje,
 			@QueryParam(value="idProceso") Integer idProceso,
-			@QueryParam(value="order") Long order,
-			@QueryParam(value="ipServer") String ipServer,
-			@QueryParam(value="idDest") Integer idDest,
-			@QueryParam(value="propuestas") Integer propuestas
+			@QueryParam(value="idEquipo") Integer idEquipo,
+			@QueryParam(value="orden") Integer orden,
+			@QueryParam(value="idEquipoDestino") Integer idEquipoDestino
 	) {
 		
-		Message m = new Message(id, idEquipo, idProcMen, order, 0);
+		Message m = new Message(idMensaje, idEquipo, idProceso, 0, 0, 0);
 		
-		System.out.println("PROPUESTA | " + m.GetContent() + " de proceso " + idProceso + " a proceso " + idDest);
+		for(int i = 0; i < listaProcesos.size(); i++) {
 			
-		listaProcesos.get(idDest - 1).receivePurpose(m);
+			if(listaProcesos.get(i).GetIdProceso() == idEquipoDestino)
+				listaProcesos.get(i).receivePropuesta(m);
+				
+		}
 		
 	}
 	
 	@GET
-	@Path("sendMultiDef")
-	public void multicastDef(
-			@QueryParam(value="content") String content,
-			@QueryParam(value="id") Integer id,
-			@QueryParam(value="idEquipo") Integer idEquipo,
+	@Path("sendAcuerdo")
+	public void sendAcuerdo(
+			@QueryParam(value="idMensaje") Integer idMensaje,
 			@QueryParam(value="idProceso") Integer idProceso,
-			@QueryParam(value="order") Long order,
-			@QueryParam(value="ipServer") String ipServer,
-			@QueryParam(value="idDest") Integer idDest,
-			@QueryParam(value="propuestas") Integer propuestas
+			@QueryParam(value="idEquipo") Integer idEquipo,
+			@QueryParam(value="orden") Integer orden,
+			@QueryParam(value="numPropuestas") Integer numPropuestas
 	) {
 		
+		Message m = new Message(idMensaje, idEquipo, idProceso, orden, numPropuestas, 1);
 		
+		for(int i = 0; i < listaProcesos.size(); i++) {
+			
+			listaProcesos.get(i).receiveAcuerdo(m);
+			
+		}
 		
 	}
 	

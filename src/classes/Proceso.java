@@ -1,206 +1,265 @@
 package classes;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
 import java.util.concurrent.Semaphore;
 
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 
 import isis.Isis;
-import isis.Multicast;
 
 public class Proceso extends Thread {
 
-	private Sleep sleep = new Sleep();
+	//Constantes
+	
+	private static final String LOGFOLDER = System.getProperty("user.home") + "/isis/";
+	private static final String LOGSEND = "LogSend.txt";
+	private static final String LOGMAIL = "LogMail.txt";
+	
+	//Clases con metodos de ayuda
+	
 	private Network network = new Network();
+	private Sleep sleep = new Sleep();
 	
-	Mail mailService;
+	//Atributos proceso
 	
-	FileLog logger;
+	Integer idProceso, idEquipo;
 	
-	int idProceso, idEquipo;
+	String ipServer, ipCentral;
 	
-	String ipEquipo, ipServer;
+	Buzon buzon;
 	
-	List<String> vecinos;
-	List<Message> mensajes;
+	FileLog fileLog;
 	
-	private Semaphore semControlMulticast;
+	private Integer ordenProceso;
+	
+	//Semaforos
+	
+	static Semaphore semControlOrder = new Semaphore(1);
+	static Semaphore semControlBuzon = new Semaphore(1);
+	static Semaphore semControlFin = new Semaphore(0);
+	
+	//Control del final
+	
+	static int contadorProcesosFinal;
 	
 	//Constructor
-	public Proceso(int idProceso, int idEquipo, List<String> vecinos, String ip, FileLog logger, String ipServer) {
-		this.idProceso = idProceso;
-		this.idEquipo = idEquipo;
-		this.ipEquipo = ip;
-		this.vecinos = vecinos;
-		this.mensajes = new ArrayList<Message>();
-		this.ipServer = ipServer;
+	
+	public Proceso(Integer idP, Integer idE, String ip) {
 		
-		mailService = new Mail();
+		this.idProceso = idP;
+		this.idEquipo = idE;
 		
-		this.logger = logger;
+		this.ipServer = ip;
 		
-		semControlMulticast = new Semaphore(1);
+		buzon = new Buzon();
+		
+		fileLog = new FileLog(LOGFOLDER, idP + LOGSEND, idP + LOGMAIL);
+		
 	}
 	
-	//Métodos constructor
-	
-	//SET -> Guardar valores
-	
-	public void SetIdProceso(int i) {
-		idProceso = i;
-	}
-	
-	public void SetIdEquipo(int i) {
-		idEquipo = i;
-	}
-	
-	public void SetVecinos(List<String> v) {
-		vecinos = v;
-	}
-	
-	//GET -> Obtener valores
-	
-	public int GetIdProceso() {
-		return idProceso;
-	}
-	
-	public int GetIdEquipo() {
-		return idEquipo;
-	}
-	
-	public List<String> GetVecinos(){
-		return vecinos;
-	}
-	
-	//Método run() del hilo
+	//Metodo run() del hilo (Proceso.start())
 	
 	public void run() {
 		
 		NotifyCreated();
 		
-		String instant = String.format("%02d", LocalDateTime.now().getHour()) + 
-				":" + String.format("%02d", LocalDateTime.now().getMinute()) + 
-				":" + String.format("%02d", LocalDateTime.now().getSecond());
+		String tStart = String.format("%02d", LocalDateTime.now().getHour())
+						+ ":" +
+						String.format("%02d", LocalDateTime.now().getMinute())
+						+ ":" +
+						String.format("%02d", LocalDateTime.now().getSecond());
 		
-		logger.log(logger.GetSend(), "Proceso " + idProceso + " a las " + instant);
-		logger.log(logger.GetMail(), "Proceso " + idProceso + " a las " +instant);
-		
-		//for(int j = 0; j < Isis.MAXPROCESOS; j++) {
+		for(int i = 0; i < 10; i++) {
 			
-			for(int i = 1; i < 10; i++) {
+			Message m = new Message(i + 1, idEquipo, idProceso, 0, 0, 0);
+			
+			for(int j = 0; j < Isis.MAXPROCESOS; j++) {
 				
-				try {
-					semControlMulticast.acquire();
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
+				WebTarget target = network.CreateClient(ipServer);
 				
-				Date d = new Date();
-				Message m = new Message(i, idEquipo, idProceso, d.getTime(), 0);
+				target.path("multicastMsg")
+					.queryParam("idMensaje", m.GetIdMensaje())
+					.queryParam("idProceso", m.GetIdProceso())
+					.queryParam("idEquipo", m.GetIdEquipo())
+					.request(MediaType.TEXT_PLAIN).get(String.class);
 				
-				mensajes.add(m);
-				
-				Multicast multicast = new Multicast(m, semControlMulticast, ipEquipo, logger);
-				multicast.start();
-				
-				sleep.ThreadSleep(1f, 1.5f);
+				sleep.ThreadSleep(0.2f, 0.5f);
 				
 			}
 			
-		//}
-		
-	}
-	
-	public void receiveMulticast(Message m, Integer origen) {
-		
-		System.out.println("RECIBIDO MULTICAST | " + m.GetContent() + " en proceso " + idProceso);
-		
-		Date d = new Date();
-		
-		m.SetOrder(d.getTime());
-		
-		mailService.buzon.add(m);
-		
-		SendPurpose(m, origen);
-		
-	}
-	
-	public void receivePurpose(Message m) {
-		
-		System.out.println("PROPUESTA RECIBIDA | " + m.GetContent() + " de proceso " + m.GetProcess() + " en proceso " + idProceso);
-		
-		Date d = new Date();
-		Message msg = new Message();
-		
-		if(m.GetOrder() < d.getTime())
-			m.SetOrder(d.getTime());
-		
-		for(int i = 0; i < mailService.GetBuzon().size(); i++) {
-			
-			if(m.GetId() == mailService.GetBuzon().get(i).GetId() && m.GetProcess() == mailService.GetBuzon().get(i).GetProcess()) {
-				msg = mailService.GetBuzon().get(i);
-			}
-			
-		}
-		
-		if(m.GetOrder() > msg.GetOrder())
-			msg.SetOrder(m.GetOrder());
-		
-		msg.SetPropuestas(msg.GetPropuestas() + 1);	
-		
-		System.out.println("Nueva propuesta recibida para " + msg.GetContent() + " -> " + msg.GetPropuestas());
-		
-		if(msg.GetPropuestas() == Isis.MAXPROCESOS) {
-			
-			msg.SetStatus(1);
-			SendMultiDef(msg);
+			sleep.ThreadSleep(1.0f, 1.5f);
 			
 		}
 		
 	}
+	
+	//Recepcion del primer mensaje multicast
+	
+	public void receiveMulticast(Message m, Integer idOrigen) {
+		
+		try{
+			
+			semControlOrder.acquire();
+			
+			m.SetOrdenLC1();
+			ordenProceso = m.GetOrden();
+			
+			semControlOrder.release();
+			
+			buzon.AddMessage(m);
+			
+			SendPropuesta(m, idOrigen);
+			
+		} catch (InterruptedException e) {
+			
+			e.printStackTrace();
+			
+		}
+		
+	}
+	
+	//Recepcion de la propuesta del mensaje multicast
+	
+	public void receivePropuesta(Message m) {
+		
+		try {
+			
+			semControlOrder.acquire();
+			
+			m.SetOrdenLC2(ordenProceso);
+			ordenProceso = m.GetOrden();
+			
+			Message mensajeBuzon = buzon.GetMessage(m.GetIdMensaje(), m.GetIdProceso());
+			
+			MaxOrden(mensajeBuzon, m);
+			
+			mensajeBuzon.SetPropuestas(mensajeBuzon.GetPropuestas() + 1);
+			
+			semControlOrder.release();
+			
+			if(mensajeBuzon.GetPropuestas() == Isis.MAXPROCESOS) {
+				
+				mensajeBuzon.SetEstado(1);
+				SendAcuerdo(mensajeBuzon);
+				
+			}
+			
+		} catch (InterruptedException e) {
+			
+			e.printStackTrace();
+			
+		}
+		
+	}
+	
+	//Recepcion del acuerdo
+	
+	public void receiveAcuerdo(Message m) {
+		
+		try {
+			
+			semControlOrder.acquire();
+			
+			m.SetOrdenLC2(ordenProceso);
+			ordenProceso = m.GetOrden();
+			
+			Message mensajeBuzon = buzon.GetMessage(m.GetIdMensaje(), m.GetIdProceso());
+			
+			MaxOrden(mensajeBuzon, m);
+			
+			mensajeBuzon.SetEstado(1);
+			
+			if(buzon.GetBuzonLength() >= 2)
+				buzon.Order();
+			
+			semControlOrder.release();
+			
+			/*
+			 * TODO
+			 * 
+			 * ULTIMA PARTE
+			 * 
+			 * LOG Y ESAS COSITAS
+			 * Arreglar el FileLog porque no ecribe :(
+			 * 
+			 */
+			
+		} catch (InterruptedException e) {
+			
+			e.printStackTrace();
+			
+		}
+		
+	}
+	
+	/*
+	 * Metodo para comprobar que mensake tiene el
+	 * mayor orden y almacenar en el primero (que
+	 * sera el que obtengamos del buzon) el valor
+	 * mas alto
+	 */
+	
+	void MaxOrden(Message m1, Message m2) {
+		
+		if(m1.GetOrden() < m2.GetOrden())
+			m1.SetOrden(m2.GetOrden());
+		
+	}
+	
+	/*
+	 * Metodo para avisar al servidor de que hemos
+	 * creado un proceso mas y esperar a que todos
+	 * esten creados para continuar
+	 */
 	
 	void NotifyCreated() {
 		
-		WebTarget target = network.CreateClient(ipEquipo);
+		WebTarget target = network.CreateClient(ipServer);
 		
-		target.path("waitForProcs").request(MediaType.TEXT_PLAIN).get(String.class);
+		target.path("waitForProcs")
+			.request(MediaType.TEXT_PLAIN).get(String.class);
+		
 		
 	}
 	
-	void SendPurpose(Message m, Integer origen) {
+	//Enviar la propuesta al proceso
+	
+	void SendPropuesta(Message m, Integer idOrigen) {
 		
-		WebTarget target = network.CreateClient(ipEquipo);
+		WebTarget target = network.CreateClient(ipServer);
 		
-		target.path("sendPurpose")
-			.queryParam("content", m.GetContent())
-			.queryParam("id", m.GetId())
-			.queryParam("idEquipo", m.GetComputer())
-			.queryParam("idProcMen", m.GetProcess())
-			.queryParam("idProceso", idProceso)
-			.queryParam("order", m.GetOrder())
-			.queryParam("ipServer", ipServer)
-			.queryParam("idDest", origen)
+		target.path("sendPropuesta")
+			.queryParam("idMensaje", m.GetIdMensaje())
+			.queryParam("idProceso", m.GetIdProceso())
+			.queryParam("idEquipo", m.GetIdEquipo())
+			.queryParam("orden", m.GetOrden())
+			.queryParam("idEquipoDestino", idOrigen)
 			.request(MediaType.TEXT_PLAIN).get(String.class);
 		
 	}
 	
-	void SendMultiDef(Message m) {
+	//Enviar el acuerdo
+	
+	void SendAcuerdo(Message m) {
 		
-		WebTarget target = network.CreateClient(ipEquipo);
+		WebTarget target = network.CreateClient(ipServer);
 		
-		target.path("sendMultiDef")
-			.queryParam("content", m.GetContent())
-			.queryParam("id", m.GetId())
-			.queryParam("idEquipo", m.GetComputer())
-			.queryParam("idProceso", m.GetProcess())
-			.queryParam("order", m.GetOrder())
-			.queryParam("ipServer", ipServer)
-			.queryParam("propuestas", m.GetPropuestas())
+		target.path("sendAcuerdo")
+			.queryParam("idMensaje", m.GetIdMensaje())
+			.queryParam("idProceso", m.GetIdProceso())
+			.queryParam("idEquipo", m.GetIdEquipo())
+			.queryParam("orden", m.GetOrden())
+			.queryParam("numPropuestas", m.GetPropuestas())
 			.request(MediaType.TEXT_PLAIN).get(String.class);
+		
+	}
+	
+	//Metodos GET
+	
+	public Integer GetIdProceso() {
+		
+		return this.idProceso;
 		
 	}
 	
