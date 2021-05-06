@@ -1,8 +1,8 @@
 package isis;
 
 import classes.Message;
-import classes.Network;
 import classes.Proceso;
+import helpers.Network;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -77,7 +77,6 @@ public class Isis {
 			target.path("create")
 				.queryParam("idEquipo", i + 1)
 				.queryParam("ipEquipo", listaEquipos.get(i))
-				.queryParam("ipCentral", ipServidorCentral)
 				.request(MediaType.TEXT_PLAIN).get(String.class);
 			
 		}
@@ -151,14 +150,16 @@ public class Isis {
 	public void multicastMsg(
 			@QueryParam(value="idMensaje") Integer idMensaje,
 			@QueryParam(value="idProceso") Integer idProceso,
-			@QueryParam(value="idEquipo") Integer idEquipo
+			@QueryParam(value="idEquipo") Integer idEquipo,
+			@QueryParam(value="idDestino") Integer idDestino
 	) {
 		
 		Message m = new Message(idMensaje, idEquipo, idProceso, 0, 0, 0);
 		
 		for(int i = 0; i < listaProcesos.size(); i++) {
 			
-			listaProcesos.get(i).receiveMulticast(m, idEquipo);
+			if(listaProcesos.get(i).GetIdProceso() == idDestino)
+				listaProcesos.get(i).receiveMulticast(m, idProceso);
 			
 		}
 		
@@ -171,17 +172,18 @@ public class Isis {
 			@QueryParam(value="idProceso") Integer idProceso,
 			@QueryParam(value="idEquipo") Integer idEquipo,
 			@QueryParam(value="orden") Integer orden,
-			@QueryParam(value="idEquipoDestino") Integer idEquipoDestino
+			@QueryParam(value="idDestino") Integer idDestino
 	) {
 		
-		Message m = new Message(idMensaje, idEquipo, idProceso, 0, 0, 0);
+		Message m = new Message(idMensaje, idEquipo, idProceso, orden, 0, 0);
 		
 		for(int i = 0; i < listaProcesos.size(); i++) {
 			
-			if(listaProcesos.get(i).GetIdProceso() == idEquipoDestino)
-				listaProcesos.get(i).receivePropuesta(m);
-				
+			if(listaProcesos.get(i).GetIdProceso() == idDestino)
+				listaProcesos.get(i).receivePropuesta(m);	
 		}
+		
+		
 		
 	}
 	

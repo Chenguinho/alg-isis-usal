@@ -15,17 +15,35 @@ public class Buzon {
 		
 	}
 	
-	public Message GetMessage(int idMessage, int idProceso) {
+	public Message GetMessage(Message m) {
+		
+		Message returnMessage = new Message();
 		
 		for(int i = 0; i < buzon.size(); i++) {
 			
-			if(idMessage == buzon.get(i).GetIdMensaje() 
-					&& 
-					idProceso == buzon.get(i).GetIdProceso())
-				return buzon.get(i);
+			if(buzon.get(i).GetIdMensaje() == m.GetIdMensaje() && buzon.get(i).GetIdProceso() == m.GetIdProceso())
+				returnMessage = buzon.get(i);
+			
 		}
 		
-		return null;
+		return returnMessage;
+		
+	}
+	
+	public void DeleteMessage(Message m) {
+		
+		for(int i = 0; i < buzon.size(); i++) {
+			
+			if(buzon.get(i).GetIdMensaje() == m.GetIdMensaje() && buzon.get(i).GetIdProceso() == m.GetIdProceso())
+				buzon.remove(i);
+			
+		}
+		
+	}
+	
+	public void DeleteMessage() {
+		
+		buzon.remove(0);
 		
 	}
 	
@@ -51,6 +69,21 @@ public class Buzon {
 	public int GetBuzonLength() {
 		
 		return this.buzon.size();
+		
+	}
+	
+	public boolean empty() {
+		
+		if(buzon.isEmpty())
+			return true;
+		else
+			return false;
+		
+	}
+	
+	public Message GetMessage() {
+		
+		return buzon.get(0);
 		
 	}
 	

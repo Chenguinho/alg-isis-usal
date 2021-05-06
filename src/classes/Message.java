@@ -76,7 +76,7 @@ public class Message {
 			proceso++;
 			this.orden = proceso;
 		} else {
-			this.orden++;
+			this.orden += 1;
 		}
 		
 	}
@@ -122,6 +122,15 @@ public class Message {
 	public Integer GetPropuestas() {
 		
 		return this.numPropuestas;
+		
+	}
+	
+	public int GetEstado() {
+		
+		if(this.estado.compareTo(PROV) == 0)
+			return 0;
+		else
+			return 1;
 		
 	}
 	

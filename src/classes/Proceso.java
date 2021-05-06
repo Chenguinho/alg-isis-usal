@@ -6,15 +6,16 @@ import java.util.concurrent.Semaphore;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 
+import helpers.FileLog;
+import helpers.Network;
+import helpers.Sleep;
 import isis.Isis;
 
 public class Proceso extends Thread {
 
 	//Constantes
 	
-	private static final String LOGFOLDER = System.getProperty("user.home") + "/isis/";
-	private static final String LOGSEND = "LogSend.txt";
-	private static final String LOGMAIL = "LogMail.txt";
+	private static final String FOLDER = System.getProperty("user.home") + "/isis/";
 	
 	//Clases con metodos de ayuda
 	
@@ -31,17 +32,18 @@ public class Proceso extends Thread {
 	
 	FileLog fileLog;
 	
-	private Integer ordenProceso;
+	//Tiempo logico de Lamport (clock)
+	
+	Integer ordenProceso = 0;
+	
+	//Flag para abandonar el bucle de escritura
+	
+	boolean exitLoop = false;
 	
 	//Semaforos
 	
-	static Semaphore semControlOrder = new Semaphore(1);
+	public static Semaphore semControlOrder = new Semaphore(1);
 	static Semaphore semControlBuzon = new Semaphore(1);
-	static Semaphore semControlFin = new Semaphore(0);
-	
-	//Control del final
-	
-	static int contadorProcesosFinal;
 	
 	//Constructor
 	
@@ -54,13 +56,15 @@ public class Proceso extends Thread {
 		
 		buzon = new Buzon();
 		
-		fileLog = new FileLog(LOGFOLDER, idP + LOGSEND, idP + LOGMAIL);
+		fileLog = new FileLog(FOLDER, idP);
 		
 	}
 	
 	//Metodo run() del hilo (Proceso.start())
 	
 	public void run() {
+		
+		System.out.println("PROCESO " + idProceso + " CREADO");
 		
 		NotifyCreated();
 		
@@ -70,11 +74,17 @@ public class Proceso extends Thread {
 						+ ":" +
 						String.format("%02d", LocalDateTime.now().getSecond());
 		
+		fileLog.log(fileLog.GetFileName(), "Proceso " + idProceso + " iniciado a las " + tStart);
+		
 		for(int i = 0; i < 10; i++) {
 			
 			Message m = new Message(i + 1, idEquipo, idProceso, 0, 0, 0);
 			
+			buzon.AddMessage(m);
+			
 			for(int j = 0; j < Isis.MAXPROCESOS; j++) {
+				
+				System.out.println("MULT | " + idProceso + " Envio " + m.GetContenido() + " a " + (j+1));
 				
 				WebTarget target = network.CreateClient(ipServer);
 				
@@ -82,6 +92,7 @@ public class Proceso extends Thread {
 					.queryParam("idMensaje", m.GetIdMensaje())
 					.queryParam("idProceso", m.GetIdProceso())
 					.queryParam("idEquipo", m.GetIdEquipo())
+					.queryParam("idDestino", j + 1)
 					.request(MediaType.TEXT_PLAIN).get(String.class);
 				
 				sleep.ThreadSleep(0.2f, 0.5f);
@@ -105,9 +116,12 @@ public class Proceso extends Thread {
 			m.SetOrdenLC1();
 			ordenProceso = m.GetOrden();
 			
+			if(m.GetIdProceso() != idProceso)
+				buzon.AddMessage(m);
+		
 			semControlOrder.release();
 			
-			buzon.AddMessage(m);
+			System.out.println("PROP | " + idProceso + " Envio " + m.GetContenido() + " a " + idOrigen);
 			
 			SendPropuesta(m, idOrigen);
 			
@@ -130,18 +144,30 @@ public class Proceso extends Thread {
 			m.SetOrdenLC2(ordenProceso);
 			ordenProceso = m.GetOrden();
 			
-			Message mensajeBuzon = buzon.GetMessage(m.GetIdMensaje(), m.GetIdProceso());
+			Message mensajeBuzon = buzon.GetMessage(m);
 			
-			MaxOrden(mensajeBuzon, m);
+			buzon.DeleteMessage(mensajeBuzon);
+			
+			if(mensajeBuzon.GetOrden() < m.GetOrden())
+				mensajeBuzon.SetOrden(m.GetOrden());
 			
 			mensajeBuzon.SetPropuestas(mensajeBuzon.GetPropuestas() + 1);
-			
-			semControlOrder.release();
 			
 			if(mensajeBuzon.GetPropuestas() == Isis.MAXPROCESOS) {
 				
 				mensajeBuzon.SetEstado(1);
+				
+				buzon.AddMessage(mensajeBuzon);
+				
+				semControlOrder.release();
+				
 				SendAcuerdo(mensajeBuzon);
+				
+			} else {
+				
+				buzon.AddMessage(mensajeBuzon);
+				
+				semControlOrder.release();
 				
 			}
 			
@@ -161,49 +187,46 @@ public class Proceso extends Thread {
 			
 			semControlOrder.acquire();
 			
+			//Tiempo logico de Lamport
+			
 			m.SetOrdenLC2(ordenProceso);
 			ordenProceso = m.GetOrden();
 			
-			Message mensajeBuzon = buzon.GetMessage(m.GetIdMensaje(), m.GetIdProceso());
+			//Obtengo el mensaje del buzon con el id correspondiente
 			
-			MaxOrden(mensajeBuzon, m);
+			Message mensajeBuzon = buzon.GetMessage(m);
+			
+			//Lo elimino del buzon
+			
+			buzon.DeleteMessage(mensajeBuzon);
+			
+			//Se hacen las comprobaciones y modificaciones necesarias
+			
+			if(mensajeBuzon.GetOrden() < m.GetOrden())
+				mensajeBuzon.SetOrden(m.GetOrden());
 			
 			mensajeBuzon.SetEstado(1);
+			
+			//Se vuelve a almacenar en el buzon
+			
+			buzon.AddMessage(mensajeBuzon);
+			
+			//Ordenamos el buzon (ORDEN DESC)
 			
 			if(buzon.GetBuzonLength() >= 2)
 				buzon.Order();
 			
-			semControlOrder.release();
+			//Escribir en el log (equivalente a entrega)
 			
-			/*
-			 * TODO
-			 * 
-			 * ULTIMA PARTE
-			 * 
-			 * LOG Y ESAS COSITAS
-			 * Arreglar el FileLog porque no ecribe :(
-			 * 
-			 */
+			ImprimirBuzon();
+			
+			semControlOrder.release();	
 			
 		} catch (InterruptedException e) {
 			
 			e.printStackTrace();
 			
 		}
-		
-	}
-	
-	/*
-	 * Metodo para comprobar que mensake tiene el
-	 * mayor orden y almacenar en el primero (que
-	 * sera el que obtengamos del buzon) el valor
-	 * mas alto
-	 */
-	
-	void MaxOrden(Message m1, Message m2) {
-		
-		if(m1.GetOrden() < m2.GetOrden())
-			m1.SetOrden(m2.GetOrden());
 		
 	}
 	
@@ -225,7 +248,7 @@ public class Proceso extends Thread {
 	
 	//Enviar la propuesta al proceso
 	
-	void SendPropuesta(Message m, Integer idOrigen) {
+	void SendPropuesta(Message m, Integer idDestino) {
 		
 		WebTarget target = network.CreateClient(ipServer);
 		
@@ -234,7 +257,7 @@ public class Proceso extends Thread {
 			.queryParam("idProceso", m.GetIdProceso())
 			.queryParam("idEquipo", m.GetIdEquipo())
 			.queryParam("orden", m.GetOrden())
-			.queryParam("idEquipoDestino", idOrigen)
+			.queryParam("idDestino", idDestino)
 			.request(MediaType.TEXT_PLAIN).get(String.class);
 		
 	}
@@ -252,6 +275,25 @@ public class Proceso extends Thread {
 			.queryParam("orden", m.GetOrden())
 			.queryParam("numPropuestas", m.GetPropuestas())
 			.request(MediaType.TEXT_PLAIN).get(String.class);
+		
+	}
+	
+	void ImprimirBuzon() {
+		
+		System.out.println(" | BUZON PROC " + idProceso);
+		for(int i = 0; i < buzon.GetBuzonLength(); i++) {
+			
+			System.out.println(
+				" | " + 
+				buzon.GetBuzonList().get(i).GetContenido() +
+				" | " + 
+				String.format("%3d", buzon.GetBuzonList().get(i).GetOrden()) + 
+				" | " +
+				String.format("%2d", buzon.GetBuzonList().get(i).GetPropuestas()) +
+				" |");
+			
+		}
+		System.out.println();
 		
 	}
 	
