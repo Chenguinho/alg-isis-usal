@@ -41,7 +41,7 @@ public class Buzon {
 		
 	}
 	
-	public void DeleteMessage() {
+	public void RemoveFirst() {
 		
 		buzon.remove(0);
 		
@@ -81,7 +81,7 @@ public class Buzon {
 		
 	}
 	
-	public Message GetMessage() {
+	public Message GetFirst() {
 		
 		return buzon.get(0);
 		

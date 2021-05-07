@@ -1,11 +1,11 @@
 package classes;
 
-import java.time.LocalDateTime;
 import java.util.concurrent.Semaphore;
 
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 
+import helpers.Diff;
 import helpers.FileLog;
 import helpers.Network;
 import helpers.Sleep;
@@ -21,6 +21,7 @@ public class Proceso extends Thread {
 	
 	private Network network = new Network();
 	private Sleep sleep = new Sleep();
+	private static Diff d = new Diff();
 	
 	//Atributos proceso
 	
@@ -42,8 +43,8 @@ public class Proceso extends Thread {
 	
 	//Semaforos
 	
-	public static Semaphore semControlOrder = new Semaphore(1);
-	static Semaphore semControlBuzon = new Semaphore(1);
+	private Semaphore semControlBuzon = new Semaphore(1);
+	private Semaphore semControlOrden = new Semaphore(1);
 	
 	//Constructor
 	
@@ -57,6 +58,7 @@ public class Proceso extends Thread {
 		buzon = new Buzon();
 		
 		fileLog = new FileLog(FOLDER, idP);
+		d.AddToList(fileLog.GetFileName());
 		
 	}
 	
@@ -68,23 +70,25 @@ public class Proceso extends Thread {
 		
 		NotifyCreated();
 		
-		String tStart = String.format("%02d", LocalDateTime.now().getHour())
-						+ ":" +
-						String.format("%02d", LocalDateTime.now().getMinute())
-						+ ":" +
-						String.format("%02d", LocalDateTime.now().getSecond());
-		
-		fileLog.log(fileLog.GetFileName(), "Proceso " + idProceso + " iniciado a las " + tStart);
-		
-		for(int i = 0; i < 10; i++) {
+		for(int i = 0; i < 5; i++) {
 			
 			Message m = new Message(i + 1, idEquipo, idProceso, 0, 0, 0);
 			
-			buzon.AddMessage(m);
+			try {
+				
+				semControlBuzon.acquire();
+				
+				buzon.AddMessage(m);
+				
+				semControlBuzon.release();
+				
+			} catch(InterruptedException e) {
+				
+				e.printStackTrace();
+				
+			}
 			
 			for(int j = 0; j < Isis.MAXPROCESOS; j++) {
-				
-				System.out.println("MULT | " + idProceso + " Envio " + m.GetContenido() + " a " + (j+1));
 				
 				WebTarget target = network.CreateClient(ipServer);
 				
@@ -108,20 +112,34 @@ public class Proceso extends Thread {
 	//Recepcion del primer mensaje multicast
 	
 	public void receiveMulticast(Message m, Integer idOrigen) {
-		
-		try{
+
+		try {
 			
-			semControlOrder.acquire();
+			semControlOrden.acquire();
 			
 			m.SetOrdenLC1();
 			ordenProceso = m.GetOrden();
 			
-			if(m.GetIdProceso() != idProceso)
-				buzon.AddMessage(m);
-		
-			semControlOrder.release();
+			semControlOrden.release();
 			
-			System.out.println("PROP | " + idProceso + " Envio " + m.GetContenido() + " a " + idOrigen);
+			if(m.GetIdProceso() != idProceso) {
+				
+				semControlBuzon.acquire();
+				buzon.AddMessage(m);
+				semControlBuzon.release();
+				
+			} else {
+				
+				semControlBuzon.acquire();
+				
+				Message msg = buzon.GetMessage(m);
+				msg.SetOrden(m.GetOrden());
+				buzon.DeleteMessage(msg);
+				buzon.AddMessage(msg);
+				
+				semControlBuzon.release();
+				
+			}
 			
 			SendPropuesta(m, idOrigen);
 			
@@ -139,27 +157,30 @@ public class Proceso extends Thread {
 		
 		try {
 			
-			semControlOrder.acquire();
+			semControlOrden.acquire();
 			
 			m.SetOrdenLC2(ordenProceso);
 			ordenProceso = m.GetOrden();
 			
-			Message mensajeBuzon = buzon.GetMessage(m);
+			semControlOrden.release();
 			
-			buzon.DeleteMessage(mensajeBuzon);
+			semControlBuzon.acquire();
+			
+			Message mensajeBuzon = buzon.GetMessage(m);
 			
 			if(mensajeBuzon.GetOrden() < m.GetOrden())
 				mensajeBuzon.SetOrden(m.GetOrden());
 			
 			mensajeBuzon.SetPropuestas(mensajeBuzon.GetPropuestas() + 1);
 			
-			if(mensajeBuzon.GetPropuestas() == Isis.MAXPROCESOS) {
+			if(mensajeBuzon.GetPropuestas() == Isis.MAXPROCESOS) {			
 				
 				mensajeBuzon.SetEstado(1);
 				
+				buzon.DeleteMessage(mensajeBuzon);
 				buzon.AddMessage(mensajeBuzon);
 				
-				semControlOrder.release();
+				semControlBuzon.release();
 				
 				SendAcuerdo(mensajeBuzon);
 				
@@ -167,7 +188,7 @@ public class Proceso extends Thread {
 				
 				buzon.AddMessage(mensajeBuzon);
 				
-				semControlOrder.release();
+				semControlBuzon.release();
 				
 			}
 			
@@ -185,30 +206,30 @@ public class Proceso extends Thread {
 		
 		try {
 			
-			semControlOrder.acquire();
-			
 			//Tiempo logico de Lamport
+			semControlOrden.acquire();
 			
 			m.SetOrdenLC2(ordenProceso);
 			ordenProceso = m.GetOrden();
 			
+			semControlOrden.release();
+			
 			//Obtengo el mensaje del buzon con el id correspondiente
+			semControlBuzon.acquire();
 			
 			Message mensajeBuzon = buzon.GetMessage(m);
-			
-			//Lo elimino del buzon
-			
-			buzon.DeleteMessage(mensajeBuzon);
 			
 			//Se hacen las comprobaciones y modificaciones necesarias
 			
 			if(mensajeBuzon.GetOrden() < m.GetOrden())
 				mensajeBuzon.SetOrden(m.GetOrden());
 			
+			mensajeBuzon.SetPropuestas(m.GetPropuestas());
 			mensajeBuzon.SetEstado(1);
+			mensajeBuzon.SetAgreed(true);
 			
 			//Se vuelve a almacenar en el buzon
-			
+			buzon.DeleteMessage(mensajeBuzon);
 			buzon.AddMessage(mensajeBuzon);
 			
 			//Ordenamos el buzon (ORDEN DESC)
@@ -216,17 +237,16 @@ public class Proceso extends Thread {
 			if(buzon.GetBuzonLength() >= 2)
 				buzon.Order();
 			
-			//Escribir en el log (equivalente a entrega)
-			
-			ImprimirBuzon();
-			
-			semControlOrder.release();	
+			semControlBuzon.release();
 			
 		} catch (InterruptedException e) {
 			
 			e.printStackTrace();
 			
 		}
+		
+		if(buzon.GetBuzonLength() == 10)
+			ImprimirBuzon();
 		
 	}
 	
@@ -290,10 +310,54 @@ public class Proceso extends Thread {
 				String.format("%3d", buzon.GetBuzonList().get(i).GetOrden()) + 
 				" | " +
 				String.format("%2d", buzon.GetBuzonList().get(i).GetPropuestas()) +
+				" | " +
+				String.format("%1d", buzon.GetBuzonList().get(i).GetEstado()) +
 				" |");
 			
 		}
 		System.out.println();
+		
+	}
+	
+	void FinalSend() {
+		
+		if(!buzon.empty()) {
+			
+			exitLoop = false;
+			
+			Message msg = buzon.GetFirst();
+			while(!exitLoop) {
+				
+				if(msg.GetEstado() == 0 || !msg.GetAgreed()) {
+					
+					exitLoop = true;
+					
+				} else {
+					
+					fileLog.log(fileLog.GetFileName(), msg.GetContenido());
+					buzon.RemoveFirst();
+					
+					if(!buzon.empty()) {
+						
+						msg = buzon.GetFirst();
+						
+					} else {
+						
+						exitLoop = true;
+						
+					}
+					
+				}
+				
+			}
+			
+		}
+		
+	}
+	
+	void Debug(String funcion, Message m) {
+		
+		System.out.println(" " + idProceso + " | " + funcion + " -> " + m.GetContenido());
 		
 	}
 	
