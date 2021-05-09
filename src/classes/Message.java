@@ -17,8 +17,6 @@ public class Message {
 	
 	String contenido;
 	
-	boolean agreedReceived;
-	
 	//Metodos creacion del mensaje
 	
 	public Message() {
@@ -37,8 +35,6 @@ public class Message {
 		SetEstado(estado);
 		
 		SetContenido(idP, idM);
-		
-		this.agreedReceived = false;
 		
 	}
 	
@@ -91,12 +87,6 @@ public class Message {
 		
 	}
 	
-	public void SetAgreed(boolean b) {
-		
-		this.agreedReceived = b;
-		
-	}
-	
 	//Metodos GET
 	
 	public Integer GetIdMensaje() {
@@ -141,12 +131,6 @@ public class Message {
 			return 0;
 		else
 			return 1;
-		
-	}
-	
-	public boolean GetAgreed() {
-		
-		return this.agreedReceived;
 		
 	}
 	

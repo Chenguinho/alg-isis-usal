@@ -2,6 +2,7 @@ package isis;
 
 import classes.Message;
 import classes.Proceso;
+import helpers.Commands;
 import helpers.Network;
 
 import java.util.ArrayList;
@@ -20,10 +21,12 @@ public class Isis {
 	
 	static final int MAXCOMPS = 1;
 	public static final int MAXPROCESOS = 2 * MAXCOMPS;
+	public static final int NUMMENSAJES = 100;
 	
 	private Network network = new Network();
+	private Commands com = new Commands();
 	
-	private String ipServidorCentral;
+	//private String ipServidorCentral;
 	
 	private static List<String> listaEquipos;
 	public static List<Proceso> listaProcesos;
@@ -55,8 +58,8 @@ public class Isis {
 			
 			String input = sc.next();
 			
-			if(i == 0)
-				ipServidorCentral = input;
+			//if(i == 0)
+			//	ipServidorCentral = input;
 			
 			listaEquipos.add(input);
 			
@@ -128,6 +131,7 @@ public class Isis {
 			} else {
 				
 				System.out.println("Todos los procesos listos!");
+				System.out.println("EMPIEZA...");
 				System.out.println();
 				
 				contadorProcesos = 0;
@@ -204,6 +208,14 @@ public class Isis {
 			listaProcesos.get(i).receiveAcuerdo(m);
 			
 		}
+		
+	}
+	
+	@GET
+	@Path("checkLogs")
+	public void checkLogs() {
+		
+		com.Exec();
 		
 	}
 	

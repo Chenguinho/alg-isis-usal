@@ -3,10 +3,13 @@ package helpers;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.PrintWriter;
+import java.util.Scanner;
 
 public class FileLog {
 	
 	String fileName;
+	
+	int count;
 	
 	public FileLog(String dir, Integer idProceso) {
 		
@@ -53,6 +56,33 @@ public class FileLog {
 			e.printStackTrace();
 			
 		}
+		
+	}
+	
+	public int CountLines() {
+		
+		try {
+			
+			File file = new File(this.fileName);
+			Scanner sc = new Scanner(file);
+			int contador = 0;
+			
+			while(sc.hasNextLine()) {
+				sc.nextLine();
+				contador++;
+			}
+			
+			sc.close();
+			
+			return contador;
+			
+		} catch (Exception e) {
+			
+			e.printStackTrace();
+			
+		}
+		
+		return 0;
 		
 	}
 	
