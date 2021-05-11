@@ -1,9 +1,9 @@
 package isis;
 
-import classes.Message;
 import classes.Proceso;
 import helpers.Commands;
 import helpers.Network;
+import helpers.Sleep;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,10 +21,11 @@ public class Isis {
 	
 	static final int MAXCOMPS = 1;
 	public static final int MAXPROCESOS = 2 * MAXCOMPS;
-	public static final int NUMMENSAJES = 100;
+	public static final int NUMMENSAJES = 10;
 	
 	private Network network = new Network();
 	private Commands com = new Commands();
+	private Sleep sleep = new Sleep();
 	
 	//private String ipServidorCentral;
 	
@@ -154,16 +155,13 @@ public class Isis {
 	public void multicastMsg(
 			@QueryParam(value="idMensaje") Integer idMensaje,
 			@QueryParam(value="idProceso") Integer idProceso,
-			@QueryParam(value="idEquipo") Integer idEquipo,
 			@QueryParam(value="idDestino") Integer idDestino
 	) {
-		
-		Message m = new Message(idMensaje, idEquipo, idProceso, 0, 0, 0);
 		
 		for(int i = 0; i < listaProcesos.size(); i++) {
 			
 			if(listaProcesos.get(i).GetIdProceso() == idDestino)
-				listaProcesos.get(i).receiveMulticast(m, idProceso);
+				listaProcesos.get(i).receiveMulticast(idMensaje, idProceso, idProceso);
 			
 		}
 		
@@ -174,17 +172,15 @@ public class Isis {
 	public void sendPropuesta(
 			@QueryParam(value="idMensaje") Integer idMensaje,
 			@QueryParam(value="idProceso") Integer idProceso,
-			@QueryParam(value="idEquipo") Integer idEquipo,
 			@QueryParam(value="orden") Integer orden,
 			@QueryParam(value="idDestino") Integer idDestino
 	) {
 		
-		Message m = new Message(idMensaje, idEquipo, idProceso, orden, 0, 0);
-		
 		for(int i = 0; i < listaProcesos.size(); i++) {
 			
 			if(listaProcesos.get(i).GetIdProceso() == idDestino)
-				listaProcesos.get(i).receivePropuesta(m);	
+				listaProcesos.get(i).receivePropuesta(idMensaje, idProceso, orden);	
+			
 		}
 		
 		
@@ -196,16 +192,15 @@ public class Isis {
 	public void sendAcuerdo(
 			@QueryParam(value="idMensaje") Integer idMensaje,
 			@QueryParam(value="idProceso") Integer idProceso,
-			@QueryParam(value="idEquipo") Integer idEquipo,
 			@QueryParam(value="orden") Integer orden,
-			@QueryParam(value="numPropuestas") Integer numPropuestas
+			@QueryParam(value="numPropuestas") Integer numPropuestas,
+			@QueryParam(value="destino") Integer destino
 	) {
-		
-		Message m = new Message(idMensaje, idEquipo, idProceso, orden, numPropuestas, 1);
 		
 		for(int i = 0; i < listaProcesos.size(); i++) {
 			
-			listaProcesos.get(i).receiveAcuerdo(m);
+			if(listaProcesos.get(i).GetIdProceso() == destino)
+				listaProcesos.get(i).receiveAcuerdo(idMensaje, idProceso, orden, numPropuestas);
 			
 		}
 		
@@ -215,6 +210,7 @@ public class Isis {
 	@Path("checkLogs")
 	public void checkLogs() {
 		
+		sleep.ThreadSleep(1f, 1.5f);
 		com.Exec();
 		
 	}

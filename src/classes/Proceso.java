@@ -33,17 +33,18 @@ public class Proceso extends Thread {
 	
 	//Tiempo logico de Lamport (clock)
 	
-	Integer ordenProceso = 0;
+	private Integer ordenProceso;
 	
 	//Variables
 	
 	boolean exitLoop = false; //Flag para abandonar el bucle de escritura
-	static int fin = 0; //Contador fin
 	static int finProc = 0;
 	
 	//Semaforos
 	
 	private static Semaphore semControlOrden = new Semaphore(1);
+	private static Semaphore semControlFin1 = new Semaphore(1);
+	
 	private static Semaphore semControlFin = new Semaphore(0);
 	
 	//Constructor
@@ -59,6 +60,8 @@ public class Proceso extends Thread {
 		
 		fileLog = new FileLog(FOLDER, idP);
 		
+		this.ordenProceso = 0;
+		
 	}
 	
 	//Metodo run() del hilo (Proceso.start())
@@ -71,9 +74,20 @@ public class Proceso extends Thread {
 		
 		for(int i = 0; i < Isis.NUMMENSAJES; i++) {
 			
-			Message m = new Message(i + 1, idEquipo, idProceso, 0, 0, 0);
+			try {
+				
+				semControlOrden.acquire();
+				
+			} catch (InterruptedException e) {
+				
+				e.printStackTrace();
+				
+			}
 			
+			Message m = new Message(i + 1, idProceso, 0, 0, 0);
 			buzon.AddMessage(m);
+			
+			semControlOrden.release();
 			
 			for(int j = 0; j < Isis.MAXPROCESOS; j++) {
 				
@@ -82,7 +96,6 @@ public class Proceso extends Thread {
 				target.path("multicastMsg")
 					.queryParam("idMensaje", m.GetIdMensaje())
 					.queryParam("idProceso", m.GetIdProceso())
-					.queryParam("idEquipo", m.GetIdEquipo())
 					.queryParam("idDestino", j + 1)
 					.request(MediaType.TEXT_PLAIN).get(String.class);
 				
@@ -98,29 +111,28 @@ public class Proceso extends Thread {
 	
 	//Recepcion del primer mensaje multicast
 	
-	public void receiveMulticast(Message m, Integer idOrigen) {
+	public void receiveMulticast(Integer idM, Integer idP, Integer idOrigen) {
 
 		try {
 			
 			semControlOrden.acquire();
 			
-			m.SetOrdenLC1();
-			ordenProceso = m.GetOrden();
+			ordenProceso = LC1(ordenProceso);
 			
-			if(m.GetIdProceso() != idProceso) {
+			if(idP != idProceso) {
 			
+				Message m = new Message(idM, idP, ordenProceso, 0, 0);
 				buzon.AddMessage(m);
 				
 			} else {
 				
-				Message msg = buzon.GetMessage(m);
-				msg.SetOrden(m.GetOrden());
+				buzon.GetMessage(idM, idP).SetOrden(ordenProceso);
 				
 			}
 			
 			semControlOrden.release();
 			
-			SendPropuesta(m, idOrigen);
+			SendPropuesta(idM, idP, ordenProceso, idOrigen);
 			
 		} catch (InterruptedException e) {
 			
@@ -132,29 +144,30 @@ public class Proceso extends Thread {
 	
 	//Recepcion de la propuesta del mensaje multicast
 	
-	public void receivePropuesta(Message m) {
+	public void receivePropuesta(Integer idM, Integer idP, Integer orden) {
 		
 		try {
 			
 			semControlOrden.acquire();
 			
-			m.SetOrdenLC2(ordenProceso);
-			ordenProceso = m.GetOrden();
+			ordenProceso = LC2(ordenProceso, orden);
 			
-			Message mensajeBuzon = buzon.GetMessage(m);
-			
-			if(mensajeBuzon.GetOrden() < m.GetOrden())
-				mensajeBuzon.SetOrden(m.GetOrden());
-			
-			mensajeBuzon.SetPropuestas(mensajeBuzon.GetPropuestas() + 1);
-			
-			if(mensajeBuzon.GetPropuestas() == Isis.MAXPROCESOS) {
+			if(buzon.GetMessage(idM, idP).GetOrden() < orden) {
 				
-				mensajeBuzon.SetEstado(1);
+				buzon.GetMessage(idM, idP).SetOrden(orden);
+				
+			}
+			
+			Integer numPropuestas = buzon.GetMessage(idM, idP).GetPropuestas() + 1;
+			buzon.GetMessage(idM, idP).SetPropuestas(numPropuestas);
+			
+			if(buzon.GetMessage(idM, idP).GetPropuestas() == Isis.MAXPROCESOS) {
+				
+				buzon.GetMessage(idM, idP).SetEstado(1);
 				
 				semControlOrden.release();
 				
-				SendAcuerdo(mensajeBuzon);
+				SendAcuerdo(idM, idP, buzon.GetMessage(idM, idP).GetOrden(), buzon.GetMessage(idM, idP).GetPropuestas());
 				
 			} else {
 				
@@ -173,27 +186,35 @@ public class Proceso extends Thread {
 	
 	//Recepcion del acuerdo
 	
-	public void receiveAcuerdo(Message m) {
+	public void receiveAcuerdo(Integer idM, Integer idP, Integer orden, Integer propuestas) {
 		
 		try {
-
+			
 			semControlOrden.acquire();
 			
-			m.SetOrdenLC2(ordenProceso);
-			ordenProceso = m.GetOrden();
+			ordenProceso = LC2(ordenProceso, orden);
 			
-			Message mensajeBuzon = buzon.GetMessage(m);
+			buzon.GetMessage(idM, idP).SetOrden(orden);
+			buzon.GetMessage(idM, idP).SetPropuestas(propuestas);
+			buzon.GetMessage(idM, idP).SetEstado(1);
 			
-			mensajeBuzon.SetOrden(m.GetOrden());
-			mensajeBuzon.SetPropuestas(m.numPropuestas);
-			mensajeBuzon.SetEstado(1);
-			
-			if(buzon.GetBuzonLength() > 1)
+			if(buzon.GetBuzonLength() > 1) {
 				buzon.Order();
+			}
 			
-			FinalSend();
+			//ImprimirBuzon();
 			
-			ControlFin();	
+			while(!buzon.empty() && buzon.GetFirst().GetEstado() == 1) {
+				
+				buzon.Order();
+				fileLog.log(fileLog.GetFileName(), buzon.GetFirst().GetContenido() + " | " + buzon.GetFirst().GetOrden());
+				buzon.RemoveFirst();
+				
+			}
+			
+			ControlFin();
+			
+			//semControlOrden.release();
 			
 		} catch (InterruptedException e) {
 			
@@ -221,15 +242,14 @@ public class Proceso extends Thread {
 	
 	//Enviar la propuesta al proceso
 	
-	void SendPropuesta(Message m, Integer idDestino) {
+	void SendPropuesta(Integer idM, Integer idP, Integer orden, Integer idDestino) {
 		
 		WebTarget target = network.CreateClient(ipServer);
 		
 		target.path("sendPropuesta")
-			.queryParam("idMensaje", m.GetIdMensaje())
-			.queryParam("idProceso", m.GetIdProceso())
-			.queryParam("idEquipo", m.GetIdEquipo())
-			.queryParam("orden", m.GetOrden())
+			.queryParam("idMensaje", idM)
+			.queryParam("idProceso", idP)
+			.queryParam("orden", orden)
 			.queryParam("idDestino", idDestino)
 			.request(MediaType.TEXT_PLAIN).get(String.class);
 		
@@ -237,17 +257,23 @@ public class Proceso extends Thread {
 	
 	//Enviar el acuerdo
 	
-	void SendAcuerdo(Message m) {
+	void SendAcuerdo(Integer idM, Integer idP, Integer orden, Integer prop) {
 		
 		WebTarget target = network.CreateClient(ipServer);
 		
-		target.path("sendAcuerdo")
-			.queryParam("idMensaje", m.GetIdMensaje())
-			.queryParam("idProceso", m.GetIdProceso())
-			.queryParam("idEquipo", m.GetIdEquipo())
-			.queryParam("orden", m.GetOrden())
-			.queryParam("numPropuestas", m.GetPropuestas())
-			.request(MediaType.TEXT_PLAIN).get(String.class);
+		for(int j = 0; j < Isis.MAXPROCESOS; j++) {
+			
+			//Debug("SEND ACUERDO", buzon.GetMessage(idM, idP), j + 1);
+			
+			target.path("sendAcuerdo")
+				.queryParam("idMensaje", idM)
+				.queryParam("idProceso", idP)
+				.queryParam("orden", orden)
+				.queryParam("numPropuestas", prop)
+				.queryParam("destino", j + 1)
+				.request(MediaType.TEXT_PLAIN).get(String.class);
+			
+		}
 		
 	}
 	
@@ -272,29 +298,22 @@ public class Proceso extends Thread {
 	
 	void FinalSend() {
 		
-		Message msg = new Message();
-		
 		if(!buzon.empty()) {
 			
 			exitLoop = false;
 			
-			msg = buzon.GetFirst();
 			while(!exitLoop) {
 				
-				if(msg.GetEstado() == 0) {
+				if(buzon.GetFirst().GetEstado() == 0) {
 					
 					exitLoop = true;
 					
 				} else {
 					
-					fileLog.log(fileLog.GetFileName(), msg.GetContenido());
+					fileLog.log(fileLog.GetFileName(), buzon.GetFirst().GetContenido());
 					buzon.RemoveFirst();
 					
-					if(!buzon.empty()) {
-						
-						msg = buzon.GetFirst();
-						
-					} else {
+					if(buzon.empty()) {
 						
 						exitLoop = true;
 						
@@ -322,22 +341,23 @@ public class Proceso extends Thread {
 			
 			try {
 				
+				semControlFin1.acquire();
+				
 				finProc++;
 				
 				if(finProc == Isis.MAXPROCESOS) {
 					
 					finProc = 0;
 					
-					System.out.println("FIN | COMPROBACION DE LOGS");
-					System.out.println();
-					
-					CheckLogs();
-					
+					semControlFin1.release();
 					semControlOrden.release();
 					semControlFin.release(Isis.MAXPROCESOS - 1);
 					
+					CheckLogs();
+					
 				} else {
 					
+					semControlFin1.release();
 					semControlOrden.release();
 					semControlFin.acquire();
 					
@@ -354,6 +374,30 @@ public class Proceso extends Thread {
 			semControlOrden.release();
 			
 		}
+		
+	}
+	
+	public Integer LC1(Integer orden) {
+		
+		return orden + 1;
+		
+	}
+	
+	public Integer LC2(Integer timestamp, Integer ordenMensaje) {
+		
+		Integer returnValue;
+		
+		if(timestamp >= ordenMensaje) {
+			
+			returnValue = timestamp + 1;
+			
+		} else {
+			
+			returnValue = ordenMensaje + 1;
+			
+		}
+		
+		return returnValue;
 		
 	}
 	
@@ -403,9 +447,9 @@ public class Proceso extends Thread {
 		
 	}
 	
-	void Debug(String funcion, Message m) {
+	void Debug(String funcion, Message m, Integer destino) {
 		
-		System.out.println(" " + idProceso + " | " + funcion + " -> " + m.GetContenido());
+		System.out.println(" " + idProceso + " | " + funcion + " -> " + m.GetContenido() + " | " + m.GetOrden() + " -> " + destino);
 		
 	}
 	

@@ -9,8 +9,6 @@ public class FileLog {
 	
 	String fileName;
 	
-	int count;
-	
 	public FileLog(String dir, Integer idProceso) {
 		
 		this.fileName = dir + idProceso + "log.txt";

@@ -23,10 +23,9 @@ public class Message {
 		
 	}
 	
-	public Message(Integer idM, Integer idE, Integer idP, Integer orden, Integer prop, int estado) {
+	public Message(Integer idM, Integer idP, Integer orden, Integer prop, int estado) {
 		
 		this.idMensaje = idM;
-		this.idEquipo = idE;
 		this.idProceso = idP;
 		
 		this.numPropuestas = prop;
@@ -35,6 +34,21 @@ public class Message {
 		SetEstado(estado);
 		
 		SetContenido(idP, idM);
+		
+	}
+	
+	public Message(Message m) {
+		
+		this.idMensaje = m.GetIdMensaje();
+		this.idEquipo = m.GetIdEquipo();
+		this.idProceso = m.GetIdProceso();
+		
+		this.numPropuestas = m.GetPropuestas();
+		this.orden = m.GetOrden();
+		
+		SetEstado(m.GetEstado());
+		
+		SetContenido(m.GetIdProceso(), m.GetIdMensaje());
 		
 	}
 	
@@ -64,20 +78,30 @@ public class Message {
 		
 	}
 	
-	public void SetOrdenLC1() {
+	public Integer SetOrdenLC1() {
 		
-		this.orden++;
+		this.orden += 1;
+		return orden;
 		
 	}
 	
-	public void SetOrdenLC2(Integer proceso) {
+	public Integer SetOrdenLC2(Integer proceso) {
 		
-		if(proceso > this.orden) {
-			proceso++;
-			this.orden = proceso;
+		int newOrden;
+		
+		if(proceso >= this.orden) {
+			
+			newOrden = proceso + 1;
+			
 		} else {
-			this.orden += 1;
+			
+			newOrden = this.orden + 1;
+			
 		}
+		
+		this.orden = newOrden;
+		
+		return this.orden;
 		
 	}
 	

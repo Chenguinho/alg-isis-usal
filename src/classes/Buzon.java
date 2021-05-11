@@ -9,19 +9,21 @@ public class Buzon {
 
 	List<Message> buzon;
 	
+	int compare;
+	
 	public Buzon() {
 		
 		this.buzon = new ArrayList<Message>();
 		
 	}
 	
-	public Message GetMessage(Message m) {
+	public Message GetMessage(Integer idM, Integer idP) {
 		
 		Message returnMessage = new Message();
 		
 		for(int i = 0; i < buzon.size(); i++) {
 			
-			if(buzon.get(i).GetIdMensaje() == m.GetIdMensaje() && buzon.get(i).GetIdProceso() == m.GetIdProceso())
+			if(buzon.get(i).GetIdMensaje() == idM && buzon.get(i).GetIdProceso() == idP)
 				returnMessage = buzon.get(i);
 			
 		}
@@ -56,13 +58,18 @@ public class Buzon {
 	public void Order() {
 		
 		Collections.sort(buzon, new Comparator<Message>() {
+			
 			public int compare(Message m1, Message m2) {
-				if(m1.GetOrden() > m2.GetOrden()) return -1;
-				if(m1.GetOrden() < m2.GetOrden()) return 1;
-				return 0;
+				
+				if(m2.GetOrden().compareTo(m1.GetOrden()) != 0) {
+					return m2.GetOrden().compareTo(m1.GetOrden());
+				} else {
+					return m2.GetIdProceso().compareTo(m2.GetIdProceso());
+				}
+				
 			}
-		}
-		);
+			
+		});
 		
 	}
 	
