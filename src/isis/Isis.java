@@ -3,7 +3,6 @@ package isis;
 import classes.Proceso;
 import helpers.Commands;
 import helpers.Network;
-import helpers.Sleep;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,11 +20,10 @@ public class Isis {
 	
 	static final int MAXCOMPS = 1;
 	public static final int MAXPROCESOS = 2 * MAXCOMPS;
-	public static final int NUMMENSAJES = 10;
+	public static final int NUMMENSAJES = 100;
 	
 	private Network network = new Network();
 	private Commands com = new Commands();
-	private Sleep sleep = new Sleep();
 	
 	//private String ipServidorCentral;
 	
@@ -36,7 +34,7 @@ public class Isis {
 	private static Semaphore semControlContador = new Semaphore(1);
 	private static Semaphore semControlProcesos = new Semaphore(0);
 	
-	//public String ipServer;
+	private static Integer procesosFinalizados;
 	
 	@GET
 	@Path("start")
@@ -44,6 +42,8 @@ public class Isis {
 		
 		listaProcesos = new ArrayList<Proceso>();
 		listaEquipos = new ArrayList<String>();
+		
+		procesosFinalizados = 0;
 		
 		/*
 		 * Pedimos al usuario a través de consola
@@ -210,8 +210,15 @@ public class Isis {
 	@Path("checkLogs")
 	public void checkLogs() {
 		
-		sleep.ThreadSleep(1f, 1.5f);
-		com.Exec();
+		procesosFinalizados++;
+		System.out.println("ding-dong!");
+		
+		if(procesosFinalizados == MAXPROCESOS) {
+			System.out.println("Los " + procesosFinalizados+ " han llegado!");
+			System.out.println("A ver si han llegado enteros...\n");
+			
+			com.Exec();
+		}
 		
 	}
 	

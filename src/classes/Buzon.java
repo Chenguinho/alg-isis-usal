@@ -62,9 +62,9 @@ public class Buzon {
 			public int compare(Message m1, Message m2) {
 				
 				if(m2.GetOrden().compareTo(m1.GetOrden()) != 0) {
-					return m2.GetOrden().compareTo(m1.GetOrden());
+					return m1.GetOrden().compareTo(m2.GetOrden());
 				} else {
-					return m2.GetIdProceso().compareTo(m2.GetIdProceso());
+					return m2.GetIdProceso().compareTo(m1.GetIdProceso());
 				}
 				
 			}

@@ -43,9 +43,7 @@ public class Proceso extends Thread {
 	//Semaforos
 	
 	private static Semaphore semControlOrden = new Semaphore(1);
-	private static Semaphore semControlFin1 = new Semaphore(1);
-	
-	private static Semaphore semControlFin = new Semaphore(0);
+	private static Semaphore semControlLineas = new Semaphore(1);
 	
 	//Constructor
 	
@@ -167,7 +165,10 @@ public class Proceso extends Thread {
 				
 				semControlOrden.release();
 				
-				SendAcuerdo(idM, idP, buzon.GetMessage(idM, idP).GetOrden(), buzon.GetMessage(idM, idP).GetPropuestas());
+				SendAcuerdo(idM, 
+							idP, 
+							buzon.GetMessage(idM, idP).GetOrden(), 
+							buzon.GetMessage(idM, idP).GetPropuestas());
 				
 			} else {
 				
@@ -198,23 +199,22 @@ public class Proceso extends Thread {
 			buzon.GetMessage(idM, idP).SetPropuestas(propuestas);
 			buzon.GetMessage(idM, idP).SetEstado(1);
 			
-			if(buzon.GetBuzonLength() > 1) {
+			if(buzon.GetBuzonLength() > 1)
 				buzon.Order();
-			}
-			
-			//ImprimirBuzon();
 			
 			while(!buzon.empty() && buzon.GetFirst().GetEstado() == 1) {
 				
-				buzon.Order();
-				fileLog.log(fileLog.GetFileName(), buzon.GetFirst().GetContenido() + " | " + buzon.GetFirst().GetOrden());
+				fileLog.log(fileLog.GetFileName(),
+						" | " +
+						buzon.GetFirst().GetContenido() 
+						+ " | ");
 				buzon.RemoveFirst();
 				
 			}
 			
-			ControlFin();
+			semControlOrden.release();
 			
-			//semControlOrden.release();
+			ControlFin();
 			
 		} catch (InterruptedException e) {
 			
@@ -223,6 +223,37 @@ public class Proceso extends Thread {
 		}
 		
 	}
+	
+	void ControlFin() {
+		
+		Integer lineas = fileLog.CountLines();
+		
+		try {
+			
+			semControlLineas.acquire();
+			
+			if(lineas == Isis.MAXPROCESOS * Isis.NUMMENSAJES) {
+				
+				semControlLineas.release();
+				CheckLogs();
+				
+			} else {
+				
+				semControlLineas.release();
+				
+			}
+			
+		} catch(InterruptedException e) {
+			
+			e.printStackTrace();
+			
+		}
+		
+		
+		
+	}
+	
+	//Llamadas al servidor...
 	
 	/*
 	 * Metodo para avisar al servidor de que hemos
@@ -263,8 +294,6 @@ public class Proceso extends Thread {
 		
 		for(int j = 0; j < Isis.MAXPROCESOS; j++) {
 			
-			//Debug("SEND ACUERDO", buzon.GetMessage(idM, idP), j + 1);
-			
 			target.path("sendAcuerdo")
 				.queryParam("idMensaje", idM)
 				.queryParam("idProceso", idP)
@@ -279,103 +308,16 @@ public class Proceso extends Thread {
 	
 	//Llamada a servidor para comprobacion de logs
 	
-	void CheckLogs() {
-		
-		WebTarget target = network.CreateClient(ipServer);
-		
-		target.path("checkLogs")
-			.request(MediaType.TEXT_PLAIN).get(String.class);
-		
-	}
-	
-	/*
-	 * Esta funcion es la que se encarga de la parte final del 
-	 * programa, es decir, se encarga de ir borrando los mensajes
-	 * del buzon mientras va escribiendo en el fichero log que 
-	 * utilizamos para simular el envio e ir obteniendo el siguiente
-	 * mensaje mientras el estado de este sea 1 (definitivo).
-	 */
-	
-	void FinalSend() {
-		
-		if(!buzon.empty()) {
+		void CheckLogs() {
 			
-			exitLoop = false;
+			WebTarget target = network.CreateClient(ipServer);
 			
-			while(!exitLoop) {
-				
-				if(buzon.GetFirst().GetEstado() == 0) {
-					
-					exitLoop = true;
-					
-				} else {
-					
-					fileLog.log(fileLog.GetFileName(), buzon.GetFirst().GetContenido());
-					buzon.RemoveFirst();
-					
-					if(buzon.empty()) {
-						
-						exitLoop = true;
-						
-					}
-					
-				}
-				
-			}
+			target.path("checkLogs")
+				.request(MediaType.TEXT_PLAIN).get(String.class);
 			
 		}
-		
-	}
 	
-	/*
-	 * Esta funcion es la que se encarga de controlar si el programa
-	 * ha finalizado. Lo hace a través de una llamada a una funcion en la
-	 * clase FileLog que se encarga basicamente de contar el numero de
-	 * lineas del fichero log, si esta tiene tantas como mensajes tiene
-	 * que haber, el proceso ha terminado y espera a los demas.
-	 */
-	
-	void ControlFin() {
-		
-		if(Isis.MAXPROCESOS * Isis.NUMMENSAJES == fileLog.CountLines()) {
-			
-			try {
-				
-				semControlFin1.acquire();
-				
-				finProc++;
-				
-				if(finProc == Isis.MAXPROCESOS) {
-					
-					finProc = 0;
-					
-					semControlFin1.release();
-					semControlOrden.release();
-					semControlFin.release(Isis.MAXPROCESOS - 1);
-					
-					CheckLogs();
-					
-				} else {
-					
-					semControlFin1.release();
-					semControlOrden.release();
-					semControlFin.acquire();
-					
-				}
-				
-			} catch (InterruptedException e) {
-				
-				e.printStackTrace();
-				
-			}
-			
-		} else {
-			
-			semControlOrden.release();
-			
-		}
-		
-	}
+	//Metodos para controlar los tiempos logicos
 	
 	public Integer LC1(Integer orden) {
 		
