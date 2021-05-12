@@ -173,13 +173,14 @@ public class Isis {
 			@QueryParam(value="idMensaje") Integer idMensaje,
 			@QueryParam(value="idProceso") Integer idProceso,
 			@QueryParam(value="orden") Integer orden,
-			@QueryParam(value="idDestino") Integer idDestino
+			@QueryParam(value="idDestino") Integer idDestino,
+			@QueryParam(value="idDesempate") Integer idDesempate
 	) {
 		
 		for(int i = 0; i < listaProcesos.size(); i++) {
 			
 			if(listaProcesos.get(i).GetIdProceso() == idDestino)
-				listaProcesos.get(i).receivePropuesta(idMensaje, idProceso, orden);	
+				listaProcesos.get(i).receivePropuesta(idMensaje, idProceso, orden, idDesempate);	
 			
 		}
 		
@@ -194,13 +195,14 @@ public class Isis {
 			@QueryParam(value="idProceso") Integer idProceso,
 			@QueryParam(value="orden") Integer orden,
 			@QueryParam(value="numPropuestas") Integer numPropuestas,
+			@QueryParam(value="idDesempate") Integer idDesempate,
 			@QueryParam(value="destino") Integer destino
 	) {
 		
 		for(int i = 0; i < listaProcesos.size(); i++) {
 			
 			if(listaProcesos.get(i).GetIdProceso() == destino)
-				listaProcesos.get(i).receiveAcuerdo(idMensaje, idProceso, orden, numPropuestas);
+				listaProcesos.get(i).receiveAcuerdo(idMensaje, idProceso, orden, numPropuestas, idDesempate);
 			
 		}
 		

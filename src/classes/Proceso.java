@@ -130,7 +130,7 @@ public class Proceso extends Thread {
 			
 			semControlOrden.release();
 			
-			SendPropuesta(idM, idP, ordenProceso, idOrigen);
+			SendPropuesta(idM, idP, ordenProceso, idOrigen, idProceso);
 			
 		} catch (InterruptedException e) {
 			
@@ -142,7 +142,7 @@ public class Proceso extends Thread {
 	
 	//Recepcion de la propuesta del mensaje multicast
 	
-	public void receivePropuesta(Integer idM, Integer idP, Integer orden) {
+	public void receivePropuesta(Integer idM, Integer idP, Integer orden, Integer idDesempate) {
 		
 		try {
 			
@@ -168,7 +168,8 @@ public class Proceso extends Thread {
 				SendAcuerdo(idM, 
 							idP, 
 							buzon.GetMessage(idM, idP).GetOrden(), 
-							buzon.GetMessage(idM, idP).GetPropuestas());
+							buzon.GetMessage(idM, idP).GetPropuestas(),
+							idDesempate);
 				
 			} else {
 				
@@ -187,7 +188,7 @@ public class Proceso extends Thread {
 	
 	//Recepcion del acuerdo
 	
-	public void receiveAcuerdo(Integer idM, Integer idP, Integer orden, Integer propuestas) {
+	public void receiveAcuerdo(Integer idM, Integer idP, Integer orden, Integer propuestas, Integer idDesempate) {
 		
 		try {
 			
@@ -200,7 +201,7 @@ public class Proceso extends Thread {
 			buzon.GetMessage(idM, idP).SetEstado(1);
 			
 			if(buzon.GetBuzonLength() > 1)
-				buzon.Order();
+				buzon.Order(idDesempate);
 			
 			while(!buzon.empty() && buzon.GetFirst().GetEstado() == 1) {
 				
@@ -273,7 +274,7 @@ public class Proceso extends Thread {
 	
 	//Enviar la propuesta al proceso
 	
-	void SendPropuesta(Integer idM, Integer idP, Integer orden, Integer idDestino) {
+	void SendPropuesta(Integer idM, Integer idP, Integer orden, Integer idDestino, Integer idDesempate) {
 		
 		WebTarget target = network.CreateClient(ipServer);
 		
@@ -282,13 +283,14 @@ public class Proceso extends Thread {
 			.queryParam("idProceso", idP)
 			.queryParam("orden", orden)
 			.queryParam("idDestino", idDestino)
+			.queryParam("idDesempate", idDesempate)
 			.request(MediaType.TEXT_PLAIN).get(String.class);
 		
 	}
 	
 	//Enviar el acuerdo
 	
-	void SendAcuerdo(Integer idM, Integer idP, Integer orden, Integer prop) {
+	void SendAcuerdo(Integer idM, Integer idP, Integer orden, Integer prop, Integer idDesempate) {
 		
 		WebTarget target = network.CreateClient(ipServer);
 		
@@ -299,6 +301,7 @@ public class Proceso extends Thread {
 				.queryParam("idProceso", idP)
 				.queryParam("orden", orden)
 				.queryParam("numPropuestas", prop)
+				.queryParam("idDesempate", idDesempate)
 				.queryParam("destino", j + 1)
 				.request(MediaType.TEXT_PLAIN).get(String.class);
 			

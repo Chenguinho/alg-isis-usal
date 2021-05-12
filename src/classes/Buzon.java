@@ -55,7 +55,7 @@ public class Buzon {
 		
 	}
 	
-	public void Order() {
+	public void Order(Integer desempate) {
 		
 		Collections.sort(buzon, new Comparator<Message>() {
 			
@@ -64,7 +64,8 @@ public class Buzon {
 				if(m2.GetOrden().compareTo(m1.GetOrden()) != 0) {
 					return m1.GetOrden().compareTo(m2.GetOrden());
 				} else {
-					return m2.GetIdProceso().compareTo(m1.GetIdProceso());
+					if(m1.GetIdProceso().compareTo(desempate) != 0 && m2.GetIdProceso().compareTo(desempate) != 0) return -1;
+					else return 1;
 				}
 				
 			}
