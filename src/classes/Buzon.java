@@ -64,8 +64,8 @@ public class Buzon {
 				if(m2.GetOrden().compareTo(m1.GetOrden()) != 0) {
 					return m1.GetOrden().compareTo(m2.GetOrden());
 				} else {
-					if(m1.GetIdProceso().compareTo(desempate) != 0 && m2.GetIdProceso().compareTo(desempate) != 0) return -1;
-					else return 1;
+					if(m1.GetIdProceso().compareTo(desempate) == 0) return 1;
+					else return -1;
 				}
 				
 			}

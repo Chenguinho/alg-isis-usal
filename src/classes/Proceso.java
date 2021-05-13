@@ -109,36 +109,62 @@ public class Proceso extends Thread {
 	
 	//Recepcion del primer mensaje multicast
 	
-	public void receiveMulticast(Integer idM, Integer idP, Integer idOrigen) {
+	public void receiveMulticast(Integer idM, Integer idP, Integer idOrigen, Integer ordered) {
 
-		try {
+		if(ordered == 1) {
 			
-			semControlOrden.acquire();
-			
-			ordenProceso = LC1(ordenProceso);
-			
-			if(idP != idProceso) {
-			
-				Message m = new Message(idM, idP, ordenProceso, 0, 0);
-				buzon.AddMessage(m);
+			try {
 				
-			} else {
+				semControlOrden.acquire();
 				
-				buzon.GetMessage(idM, idP).SetOrden(ordenProceso);
+				ordenProceso = LC1(ordenProceso);
+				
+				if(idP != idProceso) {
+				
+					Message m = new Message(idM, idP, ordenProceso, 0, 0);
+					buzon.AddMessage(m);
+					
+				} else {
+					
+					buzon.GetMessage(idM, idP).SetOrden(ordenProceso);
+					
+				}
+				
+				semControlOrden.release();
+				
+				SendPropuesta(idM, idP, ordenProceso, idOrigen, idProceso);
+				
+			} catch (InterruptedException e) {
+				
+				e.printStackTrace();
 				
 			}
 			
-			semControlOrden.release();
+		} else {
 			
-			SendPropuesta(idM, idP, ordenProceso, idOrigen, idProceso);
+			try {
+				
+				semControlOrden.acquire();
+				
+				Message m = new Message(idM, idP, 0, 0, 0);
+				
+				fileLog.log(fileLog.GetFileName(), m.GetContenido());
+				
+				semControlOrden.release();
+				
+				ControlFin2();
 			
-		} catch (InterruptedException e) {
-			
-			e.printStackTrace();
-			
+			} catch (InterruptedException e) {
+				
+				e.printStackTrace();
+				
+			}
+				
 		}
-		
+			
 	}
+		
+		
 	
 	//Recepcion de la propuesta del mensaje multicast
 	
@@ -208,6 +234,8 @@ public class Proceso extends Thread {
 				fileLog.log(fileLog.GetFileName(),
 						" | " +
 						buzon.GetFirst().GetContenido() 
+						+ " | " +
+						buzon.GetFirst().GetOrden() 
 						+ " | ");
 				buzon.RemoveFirst();
 				
@@ -248,9 +276,32 @@ public class Proceso extends Thread {
 			
 			e.printStackTrace();
 			
+		}		
+		
+	}
+	
+	void ControlFin2() {
+		
+		Integer lineas = fileLog.CountLines();
+		
+		try {
+			
+			semControlLineas.acquire();
+			if(lineas == Isis.MAXPROCESOS * Isis.NUMMENSAJES) {
+				
+				semControlLineas.release();
+				CheckLogs2();
+				
+			} else {
+				
+				semControlLineas.release();
+			} 
+			
+		} catch (InterruptedException e) {
+			
+			e.printStackTrace();
+			
 		}
-		
-		
 		
 	}
 	
@@ -311,14 +362,23 @@ public class Proceso extends Thread {
 	
 	//Llamada a servidor para comprobacion de logs
 	
-		void CheckLogs() {
-			
-			WebTarget target = network.CreateClient(ipServer);
-			
-			target.path("checkLogs")
-				.request(MediaType.TEXT_PLAIN).get(String.class);
-			
-		}
+	void CheckLogs() {
+		
+		WebTarget target = network.CreateClient(ipServer);
+		
+		target.path("checkLogs")
+			.request(MediaType.TEXT_PLAIN).get(String.class);
+		
+	}
+	
+	void CheckLogs2() {
+		
+		WebTarget target = network.CreateClient(ipServer);
+		
+		target.path("checkLogs2")
+			.request(MediaType.TEXT_PLAIN).get(String.class);
+		
+	}
 	
 	//Metodos para controlar los tiempos logicos
 	

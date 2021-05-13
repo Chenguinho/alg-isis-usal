@@ -35,6 +35,7 @@ public class Isis {
 	private static Semaphore semControlProcesos = new Semaphore(0);
 	
 	private static Integer procesosFinalizados;
+	private static Integer ordered;
 	
 	@GET
 	@Path("start")
@@ -52,6 +53,12 @@ public class Isis {
 		 */
 		
 		Scanner sc = new Scanner(System.in);
+		
+		do {
+			System.out.println("¿Va a desear emplear el protocolo de multidifusión ordenada?");
+			System.out.println("(Introduzca 1 -> SI o 0 -> NO)");
+			ordered = sc.nextInt();
+		} while(ordered != 1 && ordered != 0);
 		
 		for(int i = 0; i < MAXCOMPS; i++) {
 			
@@ -161,7 +168,7 @@ public class Isis {
 		for(int i = 0; i < listaProcesos.size(); i++) {
 			
 			if(listaProcesos.get(i).GetIdProceso() == idDestino)
-				listaProcesos.get(i).receiveMulticast(idMensaje, idProceso, idProceso);
+				listaProcesos.get(i).receiveMulticast(idMensaje, idProceso, idProceso, ordered);
 			
 		}
 		
@@ -216,8 +223,24 @@ public class Isis {
 		System.out.println("ding-dong!");
 		
 		if(procesosFinalizados == MAXPROCESOS) {
-			System.out.println("Los " + procesosFinalizados+ " han llegado!");
+			System.out.println("Los " + procesosFinalizados + " han llegado!");
 			System.out.println("A ver si han llegado enteros...\n");
+			
+			com.Exec();
+		}
+		
+	}
+	
+	@GET
+	@Path("checkLogs2")
+	public void checkLogs2() {
+		
+		procesosFinalizados++;
+		System.out.println("pum-pum-pum!");
+		
+		if(procesosFinalizados == MAXPROCESOS) {
+			System.out.println("Los " + procesosFinalizados + " han llegado!");
+			System.out.println("Estos tienen que ser unos desgraciados...\n");
 			
 			com.Exec();
 		}
