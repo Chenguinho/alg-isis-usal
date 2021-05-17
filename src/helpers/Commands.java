@@ -9,8 +9,16 @@ import java.io.Writer;
 
 import isis.Isis;
 
+/*
+ * La clase de apoyo Commands tiene los metodos para crear un
+ * script temporal que compruebe si los ficheros del equipo
+ * son iguales (es decir, que se ha realizado bien el algoritmo
+ * de multidifusion ordenada)
+ */
+
 public class Commands {
 	
+	//Metodo que ejecuta el script temporal creado y posteriormente lo borra
 	public void Exec() {
 		
 		File temp = MakeTempScript();
@@ -35,6 +43,12 @@ public class Commands {
 		
 	}
 	
+	
+	/*
+	 * Creacion del script temporal
+	 * 
+	 * Escribira un script bash que haga un diff de los log del equipo
+	 */
 	public File MakeTempScript() {
 		
 		try {
@@ -48,7 +62,7 @@ public class Commands {
 			pw.println("cd ~/isis");
 			pw.println("echo 'Utilizamos comando diff para comprobar si los ficheros son iguales...'");
 			
-			for(int i = 1; i < Isis.listaProcesos.size(); i++) {
+			for(int i = 1; i < 2; i++) {
 				
 				pw.println("echo 'diff de " 
 						+ Isis.listaProcesos.get(0).GetFileLog().GetFileName()

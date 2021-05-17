@@ -7,6 +7,11 @@ import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.UriBuilder;
 
+/*
+ * La clase apoyo Network es para reutilizar la funcion
+ * de crear el WebTarget del servidor
+ */
+
 public class Network {
 
 	public WebTarget CreateClient(String ip) {

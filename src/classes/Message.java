@@ -1,14 +1,19 @@
 package classes;
 
+/*
+ * La clase mensaje representa el objeto que se mandaran
+ * los procesos y que contiene toda la informacion necesaria
+ * para que estos se comuniquen y hagan las funciones de 
+ * forma correcta
+ */
+
 public class Message {
 	
-	//Constantes
-	
+	//Constantes que representan el estado del mensaje
 	static final String PROV = "PROVISIONAL";
 	static final String DEF = "DEFINITIVO";
 	
 	//Atributos del mensaje
-	
 	Integer idMensaje, idEquipo, idProceso;
 	Integer orden;
 	Integer numPropuestas;
@@ -17,12 +22,12 @@ public class Message {
 	
 	String contenido;
 	
-	//Metodos creacion del mensaje
-	
+	//Creacion de un mensaje
 	public Message() {
 		
 	}
 	
+	//Creacion de un mensaje a partir de atributos dados como parametros
 	public Message(Integer idM, Integer idP, Integer orden, Integer prop, int estado) {
 		
 		this.idMensaje = idM;
@@ -37,6 +42,7 @@ public class Message {
 		
 	}
 	
+	//Creacion de un mensaje a partir de otro
 	public Message(Message m) {
 		
 		this.idMensaje = m.GetIdMensaje();
@@ -54,6 +60,11 @@ public class Message {
 	
 	//Metodos SET
 	
+	/*
+	 * Establece el estado de un mensaje a partir de un entero:
+	 * 		0 => Provisional
+	 * 		1 => Definitivo
+	 */
 	public void SetEstado(int i) {
 		
 		if(i == 0)
@@ -63,6 +74,13 @@ public class Message {
 		
 	}
 	
+	/*
+	 * Establece el contenido de un mensaje en el formato
+	 * necesario:
+	 * PXX MMM
+	 * 		XX 	=> Identificador del proceso
+	 * 		MMM => Identificador del mensaje
+	 */
 	public void SetContenido(Integer proceso, Integer msj) {
 		
 		this.contenido = "P" 
@@ -75,33 +93,6 @@ public class Message {
 	public void SetOrden(Integer k) {
 		
 		this.orden = k;
-		
-	}
-	
-	public Integer SetOrdenLC1() {
-		
-		this.orden += 1;
-		return orden;
-		
-	}
-	
-	public Integer SetOrdenLC2(Integer proceso) {
-		
-		int newOrden;
-		
-		if(proceso >= this.orden) {
-			
-			newOrden = proceso + 1;
-			
-		} else {
-			
-			newOrden = this.orden + 1;
-			
-		}
-		
-		this.orden = newOrden;
-		
-		return this.orden;
 		
 	}
 	

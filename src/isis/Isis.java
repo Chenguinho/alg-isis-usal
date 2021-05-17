@@ -15,42 +15,50 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 
+/*
+ * La clase isis representa el servidor, es decir, los metodos
+ * que se van a ejecutar en el servidor accediendo a ellos
+ * a traves de rutas conocidas.
+ * Contendra toda la informacion necesaria para poder comunicarse
+ * con todos los procesos
+ */
+
 @Path("isis")
 public class Isis {
 	
-	static final int MAXCOMPS = 1;
-	public static final int MAXPROCESOS = 2 * MAXCOMPS;
+	//Constantes
+	static final int MAXCOMPS = 3;
+	static final int NPROC = 2;
+	public static final int MAXPROCESOS = NPROC * MAXCOMPS;
 	public static final int NUMMENSAJES = 100;
 	
+	//Clases de apoyo
 	private Network network = new Network();
 	private Commands com = new Commands();
 	
-	//private String ipServidorCentral;
-	
-	private static List<String> listaEquipos;
+	//Listas para almacenar informacion relevante
+	private static List<String> listaEquipos = new ArrayList<String>();
 	public static List<Proceso> listaProcesos;
 	
-	private static int contadorProcesos;
+	//Semaforos para control de secciones criticas
 	private static Semaphore semControlContador = new Semaphore(1);
 	private static Semaphore semControlProcesos = new Semaphore(0);
 	
-	private static Integer procesosFinalizados;
+	//Contadores para controlar la creacion y finalizacion de procesos
+	private static Integer contadorProcesos = 0;
+	private static Integer procesosFinalizados = 0;
+	
+	//Variable para activar o no la multidifusion ordenada
 	private static Integer ordered;
 	
+	/*
+	 * Inicializacion de los procesos, se pide por consola que se introduzcan
+	 * las direcciones IP de los equipos en los que crearemos dos procesos, tantos
+	 * como establezcamos en MAXCOMPS.
+	 */
 	@GET
 	@Path("start")
 	public void start() {
-		
-		listaProcesos = new ArrayList<Proceso>();
-		listaEquipos = new ArrayList<String>();
-		
-		procesosFinalizados = 0;
-		
-		/*
-		 * Pedimos al usuario a través de consola
-		 * que introduzca la dirección IP de tantos
-		 * ordenadores como establezcamos en MAXCOMPS
-		 */
 		
 		Scanner sc = new Scanner(System.in);
 		
@@ -66,20 +74,11 @@ public class Isis {
 			
 			String input = sc.next();
 			
-			//if(i == 0)
-			//	ipServidorCentral = input;
-			
 			listaEquipos.add(input);
 			
 		}
 		
 		sc.close();
-		
-		/*
-		 * Empezamos a crear los procesos en las diferentes
-		 * direcciones que hemos recibido como parametros
-		 * a traves de la consola
-		 */
 		
 		for(int i = 0; i < MAXCOMPS; i++) {
 			
@@ -88,26 +87,49 @@ public class Isis {
 			target.path("create")
 				.queryParam("idEquipo", i + 1)
 				.queryParam("ipEquipo", listaEquipos.get(i))
+				.queryParam("equipos", listaEquipos)
+				.queryParam("ordered", ordered)
 				.request(MediaType.TEXT_PLAIN).get(String.class);
 			
 		}
 		
 	}
 	
-	//Funcion para crear los procesos
-	
+	/*
+	 * Creamos dos procesos y los iniciamos en cada una de las direcciones 
+	 * IP que hemos obtenido en la ruta start
+	 */
 	@GET
 	@Path("create")
 	public void create(
 			@QueryParam(value="idEquipo") Integer idEquipo,
-			@QueryParam(value="ipEquipo") String ipEquipo
+			@QueryParam(value="ipEquipo") String ipEquipo,
+			@QueryParam(value="equipos") List<String> equipos,
+			@QueryParam(value="ordered") Integer isOrdered
 	) {
+		
+		listaProcesos = new ArrayList<Proceso>();
+		String[] ips = new String[MAXCOMPS];
+		List<String> computerList = new ArrayList<String>();
+		ordered = isOrdered;		
+		
+		for(int k = 0; k < equipos.size(); k++) {
+			
+			String e = equipos.get(k).substring(1, equipos.get(k).length() - 1);
+			ips = (e.split(","));
+		}
+		
+		for(int i = 0; i < ips.length; i++) {
+			
+			computerList.add(ips[i].trim());
+			
+		}
 		
 		Integer idP1 = idEquipo + (idEquipo - 1);
 		Integer idP2 = idP1 + 1;
 		
-		Proceso p1 = new Proceso(idP1, idEquipo, ipEquipo);
-		Proceso p2 = new Proceso(idP2, idEquipo, ipEquipo);
+		Proceso p1 = new Proceso(idP1, idEquipo, ipEquipo, computerList);
+		Proceso p2 = new Proceso(idP2, idEquipo, ipEquipo, computerList);
 		
 		listaProcesos.add(p1);
 		p1.start();
@@ -117,8 +139,10 @@ public class Isis {
 		
 	}
 	
-	//Funcion para esperar y sincronizar los procesos
-	
+	/*
+	 * Funcion para esperar a que se creen todos los procesos y que estos
+	 * esten sincronizados
+	 */
 	@GET
 	@Path("waitForProcs")
 	public void waitProcs() {
@@ -157,23 +181,39 @@ public class Isis {
 		
 	}
 	
+	/*
+	 * MULTICAST MENSAJE
+	 * 
+	 * El servidor recibe desde el proceso la informacion del mensaje que
+	 * tendra que mandarle a todos los procesos (se recibe en idDestino
+	 * el ID del proceso al que tiene que mandarselo).
+	 * Tambien envia la informacion relacionada a la multidifusion
+	 * ordenada, es decir, si se tiene que utilizar el algoritmo o no.
+	 */
 	@GET
 	@Path("multicastMsg")
 	public void multicastMsg(
 			@QueryParam(value="idMensaje") Integer idMensaje,
 			@QueryParam(value="idProceso") Integer idProceso,
-			@QueryParam(value="idDestino") Integer idDestino
+			@QueryParam(value="idDestino") Integer idDestino,
+			@QueryParam(value="ipOrigen") String ipOrigen
 	) {
 		
 		for(int i = 0; i < listaProcesos.size(); i++) {
 			
 			if(listaProcesos.get(i).GetIdProceso() == idDestino)
-				listaProcesos.get(i).receiveMulticast(idMensaje, idProceso, idProceso, ordered);
+				listaProcesos.get(i).receiveMulticast(idMensaje, idProceso, idProceso, ordered, ipOrigen);
 			
 		}
 		
 	}
 	
+	/*
+	 * PROPUESTA
+	 * 
+	 * El servidor recibe la informacion de la propuesta que tiene que enviarle
+	 * al proceso que se indica en idDestino
+	 */
 	@GET
 	@Path("sendPropuesta")
 	public void sendPropuesta(
@@ -195,6 +235,16 @@ public class Isis {
 		
 	}
 	
+	/*
+	 * MULTICAST ACUERDO
+	 * 
+	 * El servidor recibe desde el proceso la informacion del acuerdo que
+	 * tendra que mandarle a todos los procesos (se recibe en idDestino
+	 * el ID del proceso al que tiene que mandarselo), tambien se envia
+	 * el ID del proceso que envio la propuesta para que en caso de que
+	 * se necesite desempatar el orden del buzon se haga segun las condiciones
+	 * establecidas.
+	 */
 	@GET
 	@Path("sendAcuerdo")
 	public void sendAcuerdo(
@@ -215,6 +265,11 @@ public class Isis {
 		
 	}
 	
+	/*
+	 * COMPROBACION LOGS MULTIDIFUSION ORDENADA
+	 * 
+	 * Se comprueba si los ficheros log de todos los procesos son iguales
+	 */
 	@GET
 	@Path("checkLogs")
 	public void checkLogs() {
@@ -222,7 +277,7 @@ public class Isis {
 		procesosFinalizados++;
 		System.out.println("ding-dong!");
 		
-		if(procesosFinalizados == MAXPROCESOS) {
+		if(procesosFinalizados == NPROC) {
 			System.out.println("Los " + procesosFinalizados + " han llegado!");
 			System.out.println("A ver si han llegado enteros...\n");
 			
@@ -231,6 +286,11 @@ public class Isis {
 		
 	}
 	
+	/*
+	 * COMPROBACION LOGS MULTIDIFUSION ORDENADA
+	 * 
+	 * Se comprueba si los ficheros log de todos los procesos son iguales
+	 */
 	@GET
 	@Path("checkLogs2")
 	public void checkLogs2() {
@@ -238,7 +298,7 @@ public class Isis {
 		procesosFinalizados++;
 		System.out.println("pum-pum-pum!");
 		
-		if(procesosFinalizados == MAXPROCESOS) {
+		if(procesosFinalizados == NPROC) {
 			System.out.println("Los " + procesosFinalizados + " han llegado!");
 			System.out.println("Estos tienen que ser unos desgraciados...\n");
 			

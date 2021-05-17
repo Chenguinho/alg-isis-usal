@@ -5,10 +5,25 @@ import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.util.Scanner;
 
+/*
+ * La clase de apoyo FileLog se encarga de crear lo necesario
+ * para poder escribir el log del proceso, es decir, crear la carpeta
+ * en el directorio home del usuario si es que no existe y "reiniciar"
+ * los ficheros de log.
+ * Tambien se encarga de la propia escritura del fichero log.
+ */
+
 public class FileLog {
 	
 	String fileName;
 	
+	/*
+	 * Creacion FileLog
+	 * 
+	 * Comprueba si existe el directorio (lo creara si no existe)
+	 * Comprueba si existe el fichero log (lo eliminara y creara otro si existe,
+	 * si no, simplemente lo creara)
+	 */
 	public FileLog(String dir, Integer idProceso) {
 		
 		this.fileName = dir + idProceso + "log.txt";
@@ -34,6 +49,8 @@ public class FileLog {
 		
 	}
 	
+	
+	//Metodo para escribir en el fichero log
 	public void log(String pathToFile, String logMsg) {
 		
 		FileWriter logFile = null;
@@ -57,6 +74,10 @@ public class FileLog {
 		
 	}
 	
+	/*
+	 * Metodo para contar las lineas del fichero log (empleado para 
+	 * controlar el final del proceso)
+	 */
 	public int CountLines() {
 		
 		try {
@@ -83,6 +104,8 @@ public class FileLog {
 		return 0;
 		
 	}
+	
+	//Metodo GET
 	
 	public String GetFileName() {
 		
