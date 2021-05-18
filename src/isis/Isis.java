@@ -97,7 +97,11 @@ public class Isis {
 	
 	/*
 	 * Creamos dos procesos y los iniciamos en cada una de las direcciones 
-	 * IP que hemos obtenido en la ruta start
+	 * IP que hemos obtenido en la ruta start. Como los procesos necesitan
+	 * saber la lista de equipos que tienen tenemos que pasarsela como
+	 * parametro en su declaracion (como las listas no se pasan en un formato
+	 * muy aadecuado antes de almacenarlas las modificamos para que esten
+	 * en una forma normal
 	 */
 	@GET
 	@Path("create")
